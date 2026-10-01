@@ -4,6 +4,52 @@ Key decisions for SupportOS Oracle, newest first. Each entry states the decision
 the reason, and the trade-off. Everything here is verified by CI runs or marked
 otherwise.
 
+## Slice 2
+
+- **Workspace restructure** (branch slice2/workspace-restructure, prepared but
+  not yet pushed or CI-verified): the repo root becomes a virtual workspace
+  manifest with `members = ["crates/core", "crates/ui", "src-tauri"]` and
+  `resolver = "2"` (the value the leptos workspace itself uses; edition-2024
+  members do not require v3 and v2 is the most widely exercised). The release
+  profile stays in the root manifest — cargo ignores profiles in non-root
+  members. The UI crate moves to crates/ui together with index.html,
+  styles.css, public/ and Trunk.toml, so Trunk always runs with its working
+  directory at crates/ui: CI's frontend step uses `working-directory:
+  crates/ui`, and tauri.conf.json's beforeDevCommand/beforeBuildCommand are
+  prefixed with `cd crates/ui &&`. `frontendDist` becomes
+  `../crates/ui/dist`, still relative to src-tauri. Reason: the mission's
+  Slice 2 structure (A5) while keeping every path relative and explicit.
+  Trade-off: one directory level more in frontend paths; a second Trunk build
+  still happens inside `cargo tauri build` (its beforeBuildCommand), costing
+  CI a little time in exchange for a bundler that cannot see a stale dist.
+
+- **crates/core is the version source of truth**: `core::app::version()`
+  returns the core crate's `CARGO_PKG_VERSION`, and the src-tauri
+  `app_version` command is a one-line wrapper over it — the A5 thin-shell
+  pattern (each command wraps a core function that has a Rust test; the
+  semver-shape test moved into core). Reason: `env!` cannot read another
+  crate's version, and the shell must stay thin. Trade-off: the version now
+  lives in lockstep in four places (core, ui, src-tauri, tauri.conf.json)
+  until the Slice 3 version-consistency check lands.
+
+- **Lockfile regeneration after the restructure goes through Autofix on the
+  branch**: the restructure leaves the committed Cargo.lock stale (package
+  set changed), so the push-triggered CI run is expected to fail at
+  `clippy --locked`; the Autofix workflow is dispatched on the branch, where
+  it regenerates the lockfile, formats, commits and dispatches CI. Merge to
+  main happens only after the branch is green. Reason: A7 forbids local cargo
+  and A27 requires risky work on a named branch with main never red.
+
+- **The ui crate manifest keeps the exact S1 dependency list** through the
+  restructure (leptos csr 0.8, wasm-bindgen stack, serde, console panic hook);
+  leptos_router and the foundation dependencies (rusqlite with the `bundled`
+  feature — its libsqlite3-sys build defines `SQLITE_ENABLE_FTS5`, verified in
+  the upstream build.rs — plus thiserror, the log facade and tauri-plugin-log
+  in the shell) arrive with their own feature commits. Reason: one concern
+  per commit (A8). Trade-off: the restructure commit is larger than a pure
+  file move because crates/core carries the moved version helper, but it is
+  one coherent concern: the new shape itself.
+
 ## Slice 1
 
 - **Template**: the official create-tauri-app Leptos template
