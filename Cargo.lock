@@ -3979,10 +3979,15 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
+ "supportos-oracle-core",
  "tauri",
  "tauri-build",
  "tauri-plugin-opener",
 ]
+
+[[package]]
+name = "supportos-oracle-core"
+version = "0.1.0"
 
 [[package]]
 name = "supportos-oracle-ui"
