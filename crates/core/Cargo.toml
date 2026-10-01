@@ -12,3 +12,7 @@ license = "MIT"
 [dependencies]
 thiserror = "2"
 log = "0.4"
+# The bundled feature compiles the vendored SQLite with FTS5 enabled (the
+# libsqlite3-sys build defines SQLITE_ENABLE_FTS5, verified in its build.rs),
+# so no system SQLite is required on build or target machines.
+rusqlite = { version = "0.40", features = ["bundled"] }
