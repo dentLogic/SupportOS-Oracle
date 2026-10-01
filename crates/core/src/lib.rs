@@ -3,3 +3,4 @@
 //! without Linux GUI system libraries (docs/SPEC-AMENDMENTS.md, A5).
 
 pub mod app;
+pub mod error;
