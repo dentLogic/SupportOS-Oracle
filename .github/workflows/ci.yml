@@ -39,7 +39,7 @@ jobs:
       - name: Install Trunk and the Tauri CLI
         uses: taiki-e/install-action@v2.87.22
         with:
-          tool: trunk@0.21.14,tauri-cli@2.12.1,cargo-machete@0.9.2
+          tool: trunk@0.21.14,tauri-cli@2.12.1,cargo-machete@0.9.2,cargo-audit@0.22.2
 
       - name: Format check
         id: fmt
@@ -58,6 +58,10 @@ jobs:
       - name: Check for unused dependencies
         id: unused
         run: cargo machete
+
+      - name: Audit dependencies against the RustSec advisory database
+        id: audit
+        run: cargo audit
 
       - name: Lint
         id: clippy
@@ -99,6 +103,7 @@ jobs:
           FMT: ${{ steps.fmt.outcome }}
           COMMENTS: ${{ steps.comments.outcome }}
           UNUSED: ${{ steps.unused.outcome }}
+          AUDIT: ${{ steps.audit.outcome }}
           CLIPPY: ${{ steps.clippy.outcome }}
           TEST: ${{ steps.test.outcome }}
           TRUNK: ${{ steps.trunk.outcome }}
@@ -117,6 +122,7 @@ jobs:
             echo "| \`cargo fmt --all --check\` | ${FMT} |"
             echo "| banned comment markers | ${COMMENTS} |"
             echo "| unused dependencies (cargo machete) | ${UNUSED} |"
+            echo "| RustSec audit (cargo audit) | ${AUDIT} |"
             echo "| \`cargo clippy --all-targets -- -D warnings\` | ${CLIPPY} |"
             echo "| \`cargo test --all\` | ${TEST} |"
             echo "| \`trunk build\` | ${TRUNK} |"
