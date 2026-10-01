@@ -1,5 +1,5 @@
 # Trunk output (frontend build)
-/dist/
+/crates/ui/dist/
 
 # Rust build output
 /target/

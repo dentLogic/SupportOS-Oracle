@@ -1,0 +1,11 @@
+[package]
+name = "supportos-oracle-core"
+version = "0.1.0"
+edition = "2024"
+
+# Pure-Rust core of SupportOS Oracle: domain, persistence, services, jobs and
+# business logic. This crate must not depend on Tauri or GTK so its tests run
+# without Linux GUI system libraries (docs/SPEC-AMENDMENTS.md, A5).
+#
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[dependencies]

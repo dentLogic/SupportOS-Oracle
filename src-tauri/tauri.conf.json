@@ -4,10 +4,10 @@
   "version": "0.1.0",
   "identifier": "com.dentlogic.supportos-oracle",
   "build": {
-    "beforeDevCommand": "trunk serve",
+    "beforeDevCommand": "cd crates/ui && trunk serve",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "trunk build",
-    "frontendDist": "../dist"
+    "beforeBuildCommand": "cd crates/ui && trunk build",
+    "frontendDist": "../crates/ui/dist"
   },
   "app": {
     "withGlobalTauri": true,
