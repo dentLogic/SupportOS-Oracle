@@ -6,6 +6,45 @@ otherwise.
 
 ## Slice 2
 
+- **Logging facade and the log sink** (slice2/logging, branch tip 6392268
+  after CI runs 36938079798 and 36938147864 went green): core emits through
+  the plain `log` 0.4 facade and never installs a sink — `core::logging`
+  carries the level plumbing (a strict `level_filter_from_name` that returns
+  None for unknown names so a future settings integration must fall back
+  explicitly, plus the `Info` default filter) and `log_app_start`, the
+  version-bearing startup record. The shell installs tauri-plugin-log 2.10.0
+  (3.0.0-alpha.2 exists and is deliberately avoided) with Stdout + LogDir
+  targets and the level taken from core's default — the plugin's own default
+  is Trace, which would flood the log file, so the override is functional,
+  not cosmetic. The startup record is emitted from the Tauri setup hook;
+  that ordering was verified in the tauri 2.12.1 source (app.rs:
+  `initialize_plugins` inside `build()` runs before the setup callback) and
+  the plugin API shapes (Builder::new/level/targets, TargetKind::LogDir's
+  file_name field) against the published 2.10.0 source before the push.
+  LogDir was chosen over TargetKind::Folder because Folder takes a required
+  `path: PathBuf` that only exists after an app handle does; LogDir resolves
+  the platform directory (`$XDG_DATA_HOME/{bundleIdentifier}/logs` or
+  `$HOME/.local/share/...` on Linux) itself. Reason: A5 keeps core sink-free
+  and testable (the capture-logger test proves records reach an installed
+  logger), SPEC 19 forbids secrets in logs, so the facade carries only level
+  plumbing and version-bearing records. Trade-off: nothing user-visible is
+  logged from the UI yet — records start flowing when real subsystems land.
+
+- **A stale lockfile no longer fails `--locked` in the current CI step
+  order** (observed in run 36938079798 on aa39692): cargo-deny runs
+  `cargo metadata` internally, which re-resolves a manifest that gained
+  registry dependencies and rewrites the runner's Cargo.lock before the
+  clippy/test steps execute — deny's own output on that run already listed
+  tauri-plugin-log v2.10.0, and the subsequent `--locked` builds passed with
+  the regenerated runner lock. The scaffold-era failure ("error: cannot
+  update the lock file ... --locked", run 36878040457) happened when clippy
+  was the first resolving step and the workspace itself had changed. Net
+  effect: the committed-lock discipline is enforced by the Autofix dispatch
+  (which commits the regenerated lock) rather than by the `--locked` flag,
+  and until that commit lands, cargo audit is the one gate still reading the
+  old package set. Recorded so future red/green triage reads the right
+  symptom.
+
 - **Application error type** (slice2/error-type, merged to main as 937f740
   after CI run 36890453528 went green): `core::error::Error` carries one
   variant per Slice 2 subsystem (Database, Settings, JobQueue) plus

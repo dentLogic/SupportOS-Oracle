@@ -1,28 +1,40 @@
 # PROGRESS
 
-IN PROGRESS: none (between tasks; the application error type landed; the
-next concern is the logging facade, then SQLite).
+IN PROGRESS: none (between tasks; the logging facade landed; the next
+concern is SQLite, then settings and the job queue, then the UI shell).
 
 Current slice: S2 (Foundation)
-Current task: logging facade next (log in core + tauri-plugin-log in the
-shell), then SQLite/settings/job queue, then theming and the UI shell
-Last commit: 937f740 on slice2/error-type (merged to main after CI run
-36890453528 went green)
-Latest CI result: SUCCESS — run 36890453528 on 937f740: all gates and
-build steps green, core tests now 4 (version + three error-type tests).
+Current task: SQLite next (rusqlite 0.40 bundled in crates/core with
+migrations, WAL and FTS5, plus tests), then settings and the job queue, then
+theming and the UI shell
+Last commit: 6392268 on slice2/logging (the logging facade plus the
+regenerated lockfile; code commit aa39692, autofix commit 6392268)
+Latest CI result: SUCCESS — runs 36938079798 (aa39692) and 36938147864
+(6392268) both fully green; core tests now 8 (version, three error-type,
+four logging).
 
 What the green run proves (verified evidence, not claims):
-- The restructured workspace (crates/core + crates/ui + thin src-tauri)
-  compiles, is rustfmt-clean and clippy-clean with warnings denied on the
-  pinned toolchain (Rust 1.98.1); `cargo test --all` passes (core's semver
-  test: 1 passed; the clippy/test logs contain no errors).
-- `trunk build` produces the WASM frontend from crates/ui and
-  `cargo tauri build --bundles deb` produces the DEB through the new
-  `cd crates/ui && trunk build` beforeBuildCommand and the
-  ../crates/ui/dist frontendDist; the artifact uploads green.
-- Runs 36878040457/36878092716 both passed BEFORE the pipefail fix, so their
-  clippy/test step outcomes were masked; the defect is documented and fixed
-  in d0eac7c, and every later green run enforces the real exit codes.
+- The logging facade compiles and passes its tests on the pinned toolchain
+  (Rust 1.98.1): level-name mapping (known names, unknown rejection, Info
+  default) and the capture-logger test proving the startup record reaches
+  whatever logger the host installs. `cargo fmt --check` passed on the first
+  push without autofix reformatting.
+- The shell builds with tauri-plugin-log 2.10.0 (stdout + LogDir targets,
+  level Info from core) — clippy denied warnings over the whole workspace,
+  the DEB packaged green, and cargo machete/audit/deny accepted the new
+  dependency subtree (fern 0.7.1, num_threads, android_log-sys) on the
+  committed lockfile (run 36938147864).
+- The tauri-plugin-log API usage was verified against the official 2.10.0
+  source before the push (Builder::new defaults, level(), targets(),
+  TargetKind::LogDir file_name field), and the setup-hook ordering claim
+  against tauri 2.12.1's app.rs: initialize_plugins (build) runs before the
+  setup callback, so the startup record reaches the installed sinks.
+- New toolchain finding recorded in DECISIONS: cargo-deny's internal cargo
+  metadata re-resolves and rewrites a stale lock on the runner before the
+  clippy/test steps, so `--locked` no longer fails for additive registry
+  dependency changes (it did in the scaffold era, when clippy was the first
+  resolving step). The committed lock is still regenerated through Autofix,
+  and until it lands only cargo audit scans the old package set.
 
 Known issues:
 - The DEB's Depends still lists libwebkit2gtk-4.1-0 and libgtk-3-0 twice each
@@ -32,11 +44,11 @@ Known issues:
   clippy; informational only, tracked for the cargo-audit/deny step.
 
 Next 3 tasks:
-1. Logging: the log facade in crates/core with a test, wired to
-   tauri-plugin-log 2.10 in the shell (stdout + log file sink).
-2. crates/core SQLite layer (rusqlite 0.40 bundled — FTS5 enabled by the
-   libsqlite3-sys build flags — migrations, WAL) with tests, then settings
-   and the job queue behind it.
+1. crates/core SQLite layer (rusqlite 0.40 bundled — FTS5 enabled by the
+   libsqlite3-sys build flags — migrations, WAL) with tests, wired into the
+   shell only after the layer is green.
+2. Settings store and the job queue on top of the SQLite layer, each with
+   tests and one-line shell commands where the UI needs them.
 3. crates/ui shell: leptos_router 0.8, theming, navigation for all 20
    reference pages as honest "Not built yet" screens, 404, and the
    command-and-event pattern through the thin shell.
@@ -82,6 +94,15 @@ History of this slice (S2):
   crates/core (thiserror 2, one variant per S2 subsystem plus invalid input
   and I/O, Result alias, three tests). CI run 36890453528 green, merged to
   main.
+- aa39692 + 6392268 (autofix lockfile): logging facade on slice2/logging —
+  core gains `logging` (log 0.4 facade: level-name mapping with the Info
+  default, log_app_start) with four tests including a capture-logger test;
+  the shell installs tauri-plugin-log 2.10.0 (Stdout + LogDir targets, level
+  from core's default filter) and emits the startup record from the setup
+  hook. Push-triggered run 36938079798 passed all gates even before the
+  lockfile commit (cargo-deny's metadata step had re-resolved the runner's
+  lock; see DECISIONS), autofix landed the regenerated lock as 6392268, and
+  run 36938147864 on the branch tip went fully green.
 
 History of the previous slice (S1, for the record):
 - a614bf0, def3e75, c7b7b65, 434905e: scaffold, CI, autofix, docs (locally
