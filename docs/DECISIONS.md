@@ -6,7 +6,8 @@ otherwise.
 
 ## Slice 2
 
-- **Clean-tree gates** (branch slice2/clean-tree-gates): CI gains two steps
+- **Clean-tree gates** (slice2/clean-tree-gates, merged to main as e04e0ae
+  after CI run 36880166840 went green): CI gains two steps
   after the format check — a grep gate that fails on TODO/FIXME/XXX/HACK
   markers in Rust sources (crates/ and src-tauri/), and cargo-machete 0.9.2
   (prebuilt via taiki-e/install-action, same pinned step as Trunk and the
@@ -16,7 +17,12 @@ otherwise.
   reference exactly those), and src-tauri keeps tauri, tauri-plugin-opener
   and the core path dependency. serde/serde-wasm-bindgen and friends return
   with the commits whose code actually uses them (the UI shell and the
-  command payloads). Reason: A17/A18 demand the gates, and shipping them
+  command payloads). The first run (36879605492) caught a false negative in
+  that plan: wasm-bindgen-futures is used through the #[wasm_bindgen]
+  extern-block expansion of `async fn` (E0433 once removed), a usage textual
+  scanners cannot see, so it is restored with a package.metadata.cargo-machete
+  `ignored` entry and a manifest comment stating exactly why. Reason: A17/A18
+  demand the gates, and shipping them
   together with the fix keeps one concern per commit: a clean tree. History
   comments ("why X changed") have no deterministic grep signature, so they
   stay a review responsibility rather than a gate. Trade-off: the marker list

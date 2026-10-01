@@ -1,22 +1,16 @@
 # PROGRESS
 
-IN PROGRESS: Slice 2 clean-tree CI gates on branch slice2/clean-tree-gates.
-Approach: add the banned-comment grep gate (TODO/FIXME/XXX/HACK in Rust
-sources) and the cargo-machete unused-dependency check to CI, and remove the
-template dependencies those checks flag as unused (ui: wasm-bindgen-futures,
-js-sys, serde, serde-wasm-bindgen; src-tauri: serde, serde_json — none are
-referenced by the current sources). Dependency removals change Cargo.lock, so
-the branch goes through the Autofix flow (push, dispatch autofix, CI on the
-regenerated lockfile, merge to main only after green).
+IN PROGRESS: none (between tasks; the clean-tree gates landed and the next
+concern is the cargo audit/deny gates plus the CI report issue comment).
 
-Current slice: S2 (Foundation) — clean-tree gates step (A18)
-Current task: land the gates branch through Autofix + CI
-Last commit: d0eac7c on main (pipefail fix); gates commits on the branch above
-Latest CI result: SUCCESS — run 36878092716 on 449c1ec verified the
-restructure (fmt, clippy clean, core test 1 passed, trunk build, DEB packaging,
-artifact upload; release jobs skipped on the branch). The pipefail defect
-meant the clippy/test verdicts were not exit-code-enforced in that run; the
-log content shows both were clean, and d0eac7c enforces them from now on.
+Current slice: S2 (Foundation) — clean-tree gates step (A18) LANDED
+Current task: next A18 gates (cargo audit 0.22.2, cargo deny 0.20.2) and the
+A19 "CI report" issue comment
+Last commit: e04e0ae on slice2/clean-tree-gates (merged to main after CI run
+36880166840 went green)
+Latest CI result: SUCCESS — run 36880166840 on e04e0ae: fmt, banned-comment
+gate, cargo-machete, clippy -D warnings, test, trunk build, DEB packaging,
+artifact upload all green with the pipefail enforcement active.
 
 What the green run proves (verified evidence, not claims):
 - The restructured workspace (crates/core + crates/ui + thin src-tauri)
@@ -71,7 +65,14 @@ History of this slice (S2):
   to main (449c1ec). The push-triggered run on dade1e6 revealed the pipe
   masking defect (its clippy/test steps printed lockfile errors yet stayed
   green).
-- d0eac7c: pipefail fix (shell: bash on the piped clippy/test steps) on main.
+- d0eac7c: pipefail fix (shell: bash on the piped clippy/test steps) on main;
+  CI run 36879294137 green with real exit-code enforcement.
+- 763e624 + a9ff6ec (autofix lockfile) + 8e656c9 + e04e0ae (autofix lockfile):
+  clean-tree gates on slice2/clean-tree-gates. First run (36879605492) failed
+  at clippy: the removed wasm-bindgen-futures is used by the #[wasm_bindgen]
+  async-fn expansion (E0433) — restored with a cargo-machete ignored entry
+  and a manifest comment. CI run 36880166840 green on the branch tip, merged
+  to main.
 
 History of the previous slice (S1, for the record):
 - a614bf0, def3e75, c7b7b65, 434905e: scaffold, CI, autofix, docs (locally
