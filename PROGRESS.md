@@ -1,56 +1,53 @@
 # PROGRESS
 
-IN PROGRESS: Slice 2 workspace restructure on branch slice2/workspace-restructure.
-Approach: move the UI crate into crates/ui (index.html, styles.css, public/ and
-Trunk.toml move with it; CI's frontend step gains working-directory), add
-crates/core with the version helper and its tests, make the src-tauri
-`app_version` command a one-line wrapper over the core function, then push the
-branch and dispatch the Autofix workflow on it to regenerate the now-stale
-Cargo.lock. The push-triggered CI run on the restructure commit is expected to
-be red at `clippy --locked` until Autofix commits the fresh lockfile — that is
-the designed A7 flow, and main stays green meanwhile. Merge to main only after
-the branch is green.
+IN PROGRESS: Slice 2 clean-tree CI gates on branch slice2/clean-tree-gates.
+Approach: add the banned-comment grep gate (TODO/FIXME/XXX/HACK in Rust
+sources) and the cargo-machete unused-dependency check to CI, and remove the
+template dependencies those checks flag as unused (ui: wasm-bindgen-futures,
+js-sys, serde, serde-wasm-bindgen; src-tauri: serde, serde_json — none are
+referenced by the current sources). Dependency removals change Cargo.lock, so
+the branch goes through the Autofix flow (push, dispatch autofix, CI on the
+regenerated lockfile, merge to main only after green).
 
-Current slice: S2 (Foundation) — workspace restructure step (A32/A5)
-Current task: push the prepared branch, run Autofix on it, iterate CI to green
-Last commit: 2ad04d3 on main (owner added docs/SPEC.md and docs/SPEC-AMENDMENTS
-via upload); restructure + docs commits prepared on the branch above
-Latest CI result: SUCCESS — Run 4 of CI on 2ad04d3 (fmt, clippy -D warnings,
-test, trunk build, DEB packaging, artifact upload, nightly release all green)
+Current slice: S2 (Foundation) — clean-tree gates step (A18)
+Current task: land the gates branch through Autofix + CI
+Last commit: d0eac7c on main (pipefail fix); gates commits on the branch above
+Latest CI result: SUCCESS — run 36878092716 on 449c1ec verified the
+restructure (fmt, clippy clean, core test 1 passed, trunk build, DEB packaging,
+artifact upload; release jobs skipped on the branch). The pipefail defect
+meant the clippy/test verdicts were not exit-code-enforced in that run; the
+log content shows both were clean, and d0eac7c enforces them from now on.
 
 What the green run proves (verified evidence, not claims):
-- The S1 workspace compiles, is rustfmt-clean and clippy-clean with warnings
-  denied on the pinned toolchain (Rust 1.98.1); `cargo test --all` passes.
-- `trunk build` produces the WASM frontend and `cargo tauri build --bundles
-  deb` produces the DEB, uploaded as a CI artifact and attached to the nightly
-  pre-release with a SHA-256 checksum (re-verified after download in Slice 1).
-- The restructure branch is PREPARED but NOT pushed: the preparing session had
-  no GitHub token (redacted in the mission document), so nothing after 2ad04d3
-  is verified by any CI run yet. Do not treat the branch as tested.
+- The restructured workspace (crates/core + crates/ui + thin src-tauri)
+  compiles, is rustfmt-clean and clippy-clean with warnings denied on the
+  pinned toolchain (Rust 1.98.1); `cargo test --all` passes (core's semver
+  test: 1 passed; the clippy/test logs contain no errors).
+- `trunk build` produces the WASM frontend from crates/ui and
+  `cargo tauri build --bundles deb` produces the DEB through the new
+  `cd crates/ui && trunk build` beforeBuildCommand and the
+  ../crates/ui/dist frontendDist; the artifact uploads green.
+- Runs 36878040457/36878092716 both passed BEFORE the pipefail fix, so their
+  clippy/test step outcomes were masked; the defect is documented and fixed
+  in d0eac7c, and every later green run enforces the real exit codes.
 
 Known issues:
-- docs/SPEC.md and docs/SPEC-AMENDMENTS.md are present since 2ad04d3: Slice 2
-  is unblocked.
-- Push credentials: the session that prepared the restructure could not push.
-  The branch exists only in that sandbox; if it is lost, redo it from this
-  file's description (git mv of the five frontend entries, virtual root
-  manifest with resolver "2", crates/core with app::version, thin wrapper,
-  tauri.conf.json build block, Trunk working directory, .gitignore/.taurignore
-  path updates).
-- Depends lists libwebkit2gtk-4.1-0 and libgtk-3-0 twice each in the DEB
+- The DEB's Depends still lists libwebkit2gtk-4.1-0 and libgtk-3-0 twice each
   (explicit declaration plus bundler auto-detection). Harmless; cleanup stays
   scheduled for the packaging slice.
+- proc-macro-error2 2.0.1 (transitive) prints a future-incompat note on
+  clippy; informational only, tracked for the cargo-audit/deny step.
 
 Next 3 tasks:
-1. Push slice2/workspace-restructure, dispatch Autofix on the branch (lockfile
-   regeneration), fix CI first-error-only until green, then merge to main.
-2. Slice 2 CI gates: grep gate for TODO/history comments, unused-dependency
-   check, cargo audit, cargo deny, and the "CI report" issue comment (A18/A19).
-3. Slice 2 foundation: crates/core modules (SQLite via rusqlite "bundled" —
-   FTS5 verified enabled by libsqlite3-sys build flags — with migrations and
-   WAL, settings, job queue, error type, logging facade, command-and-event
-   pattern) and the crates/ui shell (leptos_router 0.8, theming, navigation
-   for all 20 reference pages as honest "Not built yet" screens, 404).
+1. Land slice2/clean-tree-gates (grep gate, cargo-machete 0.9.2, unused
+   template dependencies removed) through the Autofix flow.
+2. cargo audit (0.22.2) and cargo deny (0.20.2) CI steps with a tuned
+   deny.toml, then the "CI report" issue-comment job (A18/A19).
+3. Foundation modules in crates/core (error type first, then logging facade,
+   SQLite via rusqlite "bundled" with migrations/WAL/FTS5, settings, job
+   queue, command-and-event pattern) and the crates/ui shell (leptos_router
+   0.8, theming, navigation for all 20 reference pages as honest "Not built
+   yet" screens, 404).
 
 Reference page inventory (extracted from kimpearce888/supportos App.tsx, S4
 will formalize): Dashboard /, Inbox /inbox, Notifications /notifications,
@@ -63,13 +60,18 @@ routes (/inbox/conversation/:id, /customers/:id, /organizations/:id,
 /incidents/:id) and the 404 fallback.
 
 Pages done: the main window — title "SupportOS Oracle" and the app version
-displayed through the working `app_version` command (launches via the desktop
-entry the .deb installs).
+displayed through the working `app_version` command (now a one-line wrapper
+over core::app::version()).
 Pages remaining: all reference pages (S2 creates the navigation shell with
 honest "Not built yet" screens).
 
-History of this slice:
-- (none yet; the branch is the first Slice 2 work)
+History of this slice (S2):
+- 2e34dc4 + dade1e6 + 449c1ec (autofix lockfile): workspace restructure on
+  slice2/workspace-restructure, CI run 36878092716 green, fast-forward merged
+  to main (449c1ec). The push-triggered run on dade1e6 revealed the pipe
+  masking defect (its clippy/test steps printed lockfile errors yet stayed
+  green).
+- d0eac7c: pipefail fix (shell: bash on the piped clippy/test steps) on main.
 
 History of the previous slice (S1, for the record):
 - a614bf0, def3e75, c7b7b65, 434905e: scaffold, CI, autofix, docs (locally

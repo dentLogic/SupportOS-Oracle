@@ -6,8 +6,35 @@ otherwise.
 
 ## Slice 2
 
-- **Workspace restructure** (branch slice2/workspace-restructure, prepared but
-  not yet pushed or CI-verified): the repo root becomes a virtual workspace
+- **Clean-tree gates** (branch slice2/clean-tree-gates): CI gains two steps
+  after the format check — a grep gate that fails on TODO/FIXME/XXX/HACK
+  markers in Rust sources (crates/ and src-tauri/), and cargo-machete 0.9.2
+  (prebuilt via taiki-e/install-action, same pinned step as Trunk and the
+  Tauri CLI) failing on unused dependencies. To make the tree pass the new
+  checks, the unused template dependencies are removed: the UI crate keeps
+  only leptos, wasm-bindgen and console_error_panic_hook (the sources
+  reference exactly those), and src-tauri keeps tauri, tauri-plugin-opener
+  and the core path dependency. serde/serde-wasm-bindgen and friends return
+  with the commits whose code actually uses them (the UI shell and the
+  command payloads). Reason: A17/A18 demand the gates, and shipping them
+  together with the fix keeps one concern per commit: a clean tree. History
+  comments ("why X changed") have no deterministic grep signature, so they
+  stay a review responsibility rather than a gate. Trade-off: the marker list
+  is fixed (TODO/FIXME/XXX/HACK) and .rs-only for now; the grep can be
+  widened when a real need appears.
+
+- **Pipefail for piped CI steps** (d0eac7c): the clippy and test steps run
+  with `shell: bash`, which GitHub Actions executes with `-eo pipefail`, so
+  `cargo ... | tee log` can now actually fail the step. Before the fix, the
+  default shell (`bash -e`, no pipefail) took the pipeline status from tee:
+  run 36878040457 printed `error: cannot update the lock file ... --locked`
+  in both steps while they stayed green — clippy and test were never
+  exit-code-enforced in any earlier run. The restructure run's logs (36878092716)
+  show clippy finished clean and the core test passed, so no hidden breakage
+  was being masked, and every later green run enforces the real verdicts.
+
+- **Workspace restructure** (slice2/workspace-restructure, merged to main as
+  449c1ec after CI run 36878092716 went green): the repo root becomes a virtual workspace
   manifest with `members = ["crates/core", "crates/ui", "src-tauri"]` and
   `resolver = "2"` (the value the leptos workspace itself uses; edition-2024
   members do not require v3 and v2 is the most widely exercised). The release
