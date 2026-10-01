@@ -7,4 +7,11 @@ edition = "2024"
 [dependencies]
 leptos = { version = "0.8", features = ["csr"] }
 wasm-bindgen = "0.2"
+# Used only through the #[wasm_bindgen] extern-block expansion of `async fn`
+# (the generated promise bridging calls wasm_bindgen_futures), so textual
+# scanners such as cargo-machete cannot see the usage.
+wasm-bindgen-futures = "0.4"
 console_error_panic_hook = "0.1.7"
+
+[package.metadata.cargo-machete]
+ignored = ["wasm-bindgen-futures"]
