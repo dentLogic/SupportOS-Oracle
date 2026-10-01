@@ -6,6 +6,29 @@ otherwise.
 
 ## Slice 2
 
+- **Supply-chain gates and the CI report comment** (slice2/supply-chain-gates,
+  merged to main as eefe78a after CI run 36889519391 went green): CI adds
+  cargo-audit 0.22.2 (fails on RustSec vulnerabilities; maintenance-level
+  advisories stay warnings) and cargo-deny 0.20.2 running
+  `cargo deny check bans licenses sources` — advisories are deliberately not
+  repeated by deny, so the RustSec database is fetched once. deny.toml pins
+  the policy: duplicate versions warn (the Tauri tree carries unavoidable
+  duplicates), the license allow list holds exactly the licenses the current
+  tree uses plus BSL-1.0 (xxhash-rust, reached through leptos's server_fn —
+  the first run rejected it, and the never-encountered entries BSD-2-Clause,
+  CDLA-Permissive-1.0, ISC and Unicode-DFS-2016 were trimmed so a new license
+  entering the tree fails for explicit review), and only crates.io is an
+  allowed source. The workspace crates declare license = MIT to match the
+  repository LICENSE. A new ci-report job (needs: build, nightly,
+  tag-release; always()) posts the step-outcome table plus collected
+  compiler errors and failed test names as a comment on the issue titled
+  "CI report", creating it on first use; it is the only job with
+  issues: write, and it passes -R ${GITHUB_REPOSITORY} to every gh call
+  because it has no checkout step (the first attempt failed on
+  "not a git repository"). Trade-off: one comment per CI run, including the
+  transiently red runs during the Autofix flow — that is deliberate
+  visibility, not spam.
+
 - **Clean-tree gates** (slice2/clean-tree-gates, merged to main as e04e0ae
   after CI run 36880166840 went green): CI gains two steps
   after the format check — a grep gate that fails on TODO/FIXME/XXX/HACK

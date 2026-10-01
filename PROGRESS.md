@@ -1,16 +1,18 @@
 # PROGRESS
 
-IN PROGRESS: none (between tasks; the clean-tree gates landed and the next
-concern is the cargo audit/deny gates plus the CI report issue comment).
+IN PROGRESS: none (between tasks; the supply-chain gates and the CI report
+comment landed; the next concern is the foundation modules in crates/core
+and the UI shell).
 
-Current slice: S2 (Foundation) — clean-tree gates step (A18) LANDED
-Current task: next A18 gates (cargo audit 0.22.2, cargo deny 0.20.2) and the
-A19 "CI report" issue comment
-Last commit: e04e0ae on slice2/clean-tree-gates (merged to main after CI run
-36880166840 went green)
-Latest CI result: SUCCESS — run 36880166840 on e04e0ae: fmt, banned-comment
-gate, cargo-machete, clippy -D warnings, test, trunk build, DEB packaging,
-artifact upload all green with the pipefail enforcement active.
+Current slice: S2 (Foundation) — A18/A19 CI gates LANDED
+Current task: foundation modules (error type, logging, SQLite, settings,
+job queue, command-and-event) and the UI shell with navigation
+Last commit: eefe78a on slice2/supply-chain-gates (merged to main after CI
+run 36889519391 went green)
+Latest CI result: SUCCESS — run 36889519391 on eefe78a: fmt, banned-comment
+gate, cargo-machete, cargo audit, cargo deny, clippy -D warnings, test,
+trunk build, DEB packaging, artifact upload green; the ci-report job posted
+the run's report as issue comment #1 (issue "CI report").
 
 What the green run proves (verified evidence, not claims):
 - The restructured workspace (crates/core + crates/ui + thin src-tauri)
@@ -33,15 +35,13 @@ Known issues:
   clippy; informational only, tracked for the cargo-audit/deny step.
 
 Next 3 tasks:
-1. Land slice2/clean-tree-gates (grep gate, cargo-machete 0.9.2, unused
-   template dependencies removed) through the Autofix flow.
-2. cargo audit (0.22.2) and cargo deny (0.20.2) CI steps with a tuned
-   deny.toml, then the "CI report" issue-comment job (A18/A19).
-3. Foundation modules in crates/core (error type first, then logging facade,
-   SQLite via rusqlite "bundled" with migrations/WAL/FTS5, settings, job
-   queue, command-and-event pattern) and the crates/ui shell (leptos_router
-   0.8, theming, navigation for all 20 reference pages as honest "Not built
-   yet" screens, 404).
+1. crates/core foundation: application error type (thiserror) with tests,
+   then the logging facade (log) wired to tauri-plugin-log in the shell.
+2. crates/core SQLite layer (rusqlite bundled, migrations, WAL, FTS5) with
+   tests, then settings and the job queue behind it.
+3. crates/ui shell: leptos_router 0.8, theming, navigation for all 20
+   reference pages as honest "Not built yet" screens, 404, and the
+   command-and-event pattern through the thin shell.
 
 Reference page inventory (extracted from kimpearce888/supportos App.tsx, S4
 will formalize): Dashboard /, Inbox /inbox, Notifications /notifications,
@@ -73,6 +73,13 @@ History of this slice (S2):
   async-fn expansion (E0433) — restored with a cargo-machete ignored entry
   and a manifest comment. CI run 36880166840 green on the branch tip, merged
   to main.
+- 9da5388 (cargo audit 0.22.2), ce3b16e + 1a5d579 (cargo deny 0.20.2 with
+  deny.toml; first run rejected BSL-1.0 from xxhash-rust and warned about
+  unused allow entries — BSL-1.0 allowed, list trimmed to the tree), 01de1cf
+  + eefe78a (ci-report job; first attempt failed because gh could not
+  resolve the repository without a checkout — now passes -R) on
+  slice2/supply-chain-gates. CI run 36889519391 green; issue #1 "CI report"
+  created with the first report comment.
 
 History of the previous slice (S1, for the record):
 - a614bf0, def3e75, c7b7b65, 434905e: scaffold, CI, autofix, docs (locally
