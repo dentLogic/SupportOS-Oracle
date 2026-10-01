@@ -2,6 +2,7 @@
 name = "supportos-oracle-core"
 version = "0.1.0"
 edition = "2024"
+license = "MIT"
 
 # Pure-Rust core of SupportOS Oracle: domain, persistence, services, jobs and
 # business logic. This crate must not depend on Tauri or GTK so its tests run

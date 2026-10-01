@@ -1,0 +1,34 @@
+# cargo-deny configuration (schema 2). Checks run in CI as
+# `cargo deny check bans licenses sources` — advisories are covered by the
+# dedicated `cargo audit` step, so they are not repeated here.
+# Reference: https://embarkstudios.github.io/cargo-deny/checks/
+
+[bans]
+# The Tauri 2 dependency tree carries several unavoidable duplicate versions.
+# Duplicates surface as warnings: visible in the run log without failing CI.
+multiple-versions = "warn"
+
+[licenses]
+version = 2
+# Permissive licenses expected across the leptos/tauri/rusqlite tree.
+allow = [
+  "0BSD",
+  "Apache-2.0",
+  "Apache-2.0 WITH LLVM-exception",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "CC0-1.0",
+  "CDLA-Permissive-1.0",
+  "ISC",
+  "MIT",
+  "MPL-2.0",
+  "Unicode-3.0",
+  "Unicode-DFS-2016",
+  "Zlib",
+]
+
+[sources]
+# Registry crates must come from crates.io; no unvetted registries or git
+# dependencies are allowed.
+unknown-registry = "deny"
+unknown-git = "deny"
