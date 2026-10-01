@@ -1,0 +1,220 @@
+name: CI
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build, test and package
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Install Tauri 2 Linux prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev
+
+      - name: Install the pinned Rust toolchain
+        run: rustup show
+
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@v2.9.2
+
+      - name: Install Trunk
+        run: cargo install trunk --version 0.21.14 --locked
+
+      - name: Install Tauri CLI
+        run: cargo install tauri-cli --version 2.12.1 --locked
+
+      - name: Format check
+        id: fmt
+        run: cargo fmt --all --check
+
+      - name: Lint
+        id: clippy
+        run: cargo clippy --all-targets --locked -- -D warnings 2>&1 | tee clippy.log
+
+      - name: Test
+        id: test
+        run: cargo test --all --locked 2>&1 | tee test.log
+
+      - name: Frontend build
+        id: trunk
+        run: trunk build
+
+      - name: Package (DEB)
+        id: package
+        run: cargo tauri build --bundles deb
+
+      - name: Upload packages
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: packages
+          path: src-tauri/target/release/bundle/deb/*.deb
+          if-no-files-found: error
+
+      - name: Write job summary
+        if: always()
+        env:
+          JOB_STATUS: ${{ job.status }}
+          FMT: ${{ steps.fmt.outcome }}
+          CLIPPY: ${{ steps.clippy.outcome }}
+          TEST: ${{ steps.test.outcome }}
+          TRUNK: ${{ steps.trunk.outcome }}
+          PACKAGE: ${{ steps.package.outcome }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          {
+            echo "## CI build summary"
+            echo
+            echo "- Job status: ${JOB_STATUS}"
+            echo "- Commit: ${GITHUB_SHA}"
+            echo "- Run: ${RUN_URL}"
+            echo
+            echo "| Step | Outcome |"
+            echo "| ---- | ------- |"
+            echo "| \`cargo fmt --all --check\` | ${FMT} |"
+            echo "| \`cargo clippy --all-targets -- -D warnings\` | ${CLIPPY} |"
+            echo "| \`cargo test --all\` | ${TEST} |"
+            echo "| \`trunk build\` | ${TRUNK} |"
+            echo "| \`cargo tauri build --bundles deb\` | ${PACKAGE} |"
+            echo
+            echo "### Compiler errors (Lint step, first 30 lines)"
+            echo
+            echo '```'
+            grep -E '^error' clippy.log | head -30 || true
+            echo '```'
+            echo
+            echo "### Compiler errors (Test step, first 30 lines)"
+            echo
+            echo '```'
+            grep -E '^error' test.log | head -30 || true
+            echo '```'
+            echo
+            echo "### Failed tests (Test step, first 30 lines)"
+            echo
+            echo '```'
+            grep -E '^test .* FAILED|^failures:$' test.log | head -30 || true
+            echo '```'
+            echo
+            echo "Open the run log of any failed step above for the full output."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  nightly:
+    name: Nightly release
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Download packages
+        uses: actions/download-artifact@v8.0.1
+        with:
+          name: packages
+          path: packages
+
+      - name: Replace the assets of the nightly pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! gh release view nightly > /dev/null 2>&1; then
+            gh release create nightly --prerelease \
+              --title "Nightly" \
+              --notes "Unsigned development build produced by CI. Not suitable for production use."
+          fi
+          gh release view nightly --json assets --jq '.assets[].name' | while read -r asset; do
+            gh release delete-asset nightly "$asset" --yes
+          done
+          cd packages
+          shopt -s nullglob
+          for deb in *.deb; do
+            sha256sum "$deb" > "${deb}.sha256"
+          done
+          gh release upload nightly ./*.deb ./*.sha256 --clobber
+
+      - name: Write job summary
+        if: always()
+        env:
+          RELEASE_URL: ${{ github.server_url }}/${{ github.repository }}/releases/tag/nightly
+        run: |
+          {
+            echo "## Nightly release summary"
+            echo
+            echo "Packages and SHA-256 checksums replaced on the nightly pre-release:"
+            echo "${RELEASE_URL}"
+            echo
+            echo '```'
+            cd packages && sha256sum ./*.deb 2> /dev/null || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  tag-release:
+    name: Release for a version tag
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Download packages
+        uses: actions/download-artifact@v8.0.1
+        with:
+          name: packages
+          path: packages
+
+      - name: Publish the pre-release for the tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! gh release view "${GITHUB_REF_NAME}" > /dev/null 2>&1; then
+            gh release create "${GITHUB_REF_NAME}" --prerelease \
+              --title "${GITHUB_REF_NAME}" \
+              --notes "Unsigned development build for ${GITHUB_REF_NAME}. Not suitable for production use."
+          fi
+          gh release view "${GITHUB_REF_NAME}" --json assets --jq '.assets[].name' | while read -r asset; do
+            gh release delete-asset "${GITHUB_REF_NAME}" "$asset" --yes
+          done
+          cd packages
+          shopt -s nullglob
+          for deb in *.deb; do
+            sha256sum "$deb" > "${deb}.sha256"
+          done
+          gh release upload "${GITHUB_REF_NAME}" ./*.deb ./*.sha256 --clobber
+
+      - name: Write job summary
+        if: always()
+        env:
+          RELEASE_URL: ${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ github.ref_name }}
+        run: |
+          {
+            echo "## Tag release summary"
+            echo
+            echo "Packages and SHA-256 checksums published for ${GITHUB_REF_NAME}:"
+            echo "${RELEASE_URL}"
+            echo
+            echo '```'
+            cd packages && sha256sum ./*.deb 2> /dev/null || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
