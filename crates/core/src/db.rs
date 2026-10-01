@@ -10,7 +10,7 @@
 
 use std::path::Path;
 
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 
 use crate::error::{Error, Result};
 
@@ -43,9 +43,7 @@ pub fn open(path: impl AsRef<Path>) -> Result<Connection> {
 
     let journal_mode: String = conn
         .query_row("PRAGMA journal_mode=WAL", [], |row| row.get(0))
-        .map_err(|e| {
-            Error::Database(format!("cannot enable WAL on {}: {e}", path.display()))
-        })?;
+        .map_err(|e| Error::Database(format!("cannot enable WAL on {}: {e}", path.display())))?;
     if !journal_mode.eq_ignore_ascii_case("wal") {
         return Err(Error::Database(format!(
             "{} refused the WAL journal mode (reported {journal_mode})",
@@ -53,10 +51,12 @@ pub fn open(path: impl AsRef<Path>) -> Result<Connection> {
         )));
     }
 
-    conn.execute_batch("PRAGMA foreign_keys=ON")
-        .map_err(|e| {
-            Error::Database(format!("cannot enable foreign keys on {}: {e}", path.display()))
-        })?;
+    conn.execute_batch("PRAGMA foreign_keys=ON").map_err(|e| {
+        Error::Database(format!(
+            "cannot enable foreign keys on {}: {e}",
+            path.display()
+        ))
+    })?;
 
     run_migrations(&mut conn, MIGRATIONS)?;
     Ok(conn)
@@ -135,8 +135,8 @@ fn applied_migrations(conn: &Connection) -> Result<Vec<AppliedMigration>> {
 
     let mut applied = Vec::new();
     for row in rows {
-        let record = row
-            .map_err(|e| Error::Database(format!("cannot read a migration record: {e}")))?;
+        let record =
+            row.map_err(|e| Error::Database(format!("cannot read a migration record: {e}")))?;
         applied.push(record);
     }
     Ok(applied)
@@ -186,7 +186,7 @@ fn unix_epoch_seconds() -> Result<i64> {
 
 #[cfg(test)]
 mod tests {
-    use super::{open, run_migrations, Migration, MIGRATIONS};
+    use super::{MIGRATIONS, Migration, open, run_migrations};
     use rusqlite::Connection;
     use std::path::PathBuf;
 
@@ -258,9 +258,11 @@ mod tests {
         assert_eq!(recorded, MIGRATIONS.len() as i64);
 
         let stored: String = conn
-            .query_row("SELECT value FROM settings WHERE key = 'theme'", [], |row| {
-                row.get(0)
-            })
+            .query_row(
+                "SELECT value FROM settings WHERE key = 'theme'",
+                [],
+                |row| row.get(0),
+            )
             .expect("the settings row should survive the reopen");
         assert_eq!(stored, "dark");
     }
@@ -276,9 +278,11 @@ mod tests {
         )
         .expect("the FTS5 probe table should accept rows");
         let hits: i64 = conn
-            .query_row("SELECT count(*) FROM probe WHERE probe MATCH 'search'", [], |row| {
-                row.get(0)
-            })
+            .query_row(
+                "SELECT count(*) FROM probe WHERE probe MATCH 'search'",
+                [],
+                |row| row.get(0),
+            )
             .expect("the FTS5 match query should run");
         assert_eq!(hits, 1);
     }
@@ -291,8 +295,7 @@ mod tests {
             name: "one",
             sql: "CREATE TABLE probe_original (x INTEGER)",
         }];
-        run_migrations(&mut conn, &original)
-            .expect("the original migration should apply");
+        run_migrations(&mut conn, &original).expect("the original migration should apply");
 
         let tampered = [Migration {
             version: 1,
@@ -315,11 +318,10 @@ mod tests {
             name: "future",
             sql: "CREATE TABLE probe_future (x INTEGER)",
         }];
-        run_migrations(&mut conn, &future)
-            .expect("the future migration should apply");
+        run_migrations(&mut conn, &future).expect("the future migration should apply");
 
-        let error = run_migrations(&mut conn, MIGRATIONS)
-            .expect_err("a newer database must be rejected");
+        let error =
+            run_migrations(&mut conn, MIGRATIONS).expect_err("a newer database must be rejected");
         assert!(
             error.to_string().contains("cannot provide"),
             "unexpected error: {error}"
@@ -357,8 +359,7 @@ mod tests {
             name: "broken",
             sql: "CREATE TABLE probe_broken (x INTEGER); CREATE TABLE probe_broken (y INTEGER)",
         }];
-        let error = run_migrations(&mut conn, &broken)
-            .expect_err("the broken migration must fail");
+        let error = run_migrations(&mut conn, &broken).expect_err("the broken migration must fail");
         assert!(
             error.to_string().contains("failed"),
             "unexpected error: {error}"
