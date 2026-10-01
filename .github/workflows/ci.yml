@@ -47,10 +47,16 @@ jobs:
 
       - name: Lint
         id: clippy
+        # shell: bash runs with -eo pipefail: without pipefail the `| tee` pipe
+        # masked cargo's exit code and the step passed even when clippy failed
+        # (observed in run 36878040457: the --locked lockfile error printed in
+        # the log while the step stayed green).
+        shell: bash
         run: cargo clippy --workspace --all-targets --locked -- -D warnings 2>&1 | tee clippy.log
 
       - name: Test
         id: test
+        shell: bash
         run: cargo test --all --locked 2>&1 | tee test.log
 
       - name: Frontend build
