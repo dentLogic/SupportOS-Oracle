@@ -6,3 +6,4 @@ pub mod app;
 pub mod db;
 pub mod error;
 pub mod logging;
+pub mod settings;
