@@ -3983,6 +3983,7 @@ dependencies = [
  "console_error_panic_hook",
  "leptos",
  "wasm-bindgen",
+ "wasm-bindgen-futures",
 ]
 
 [[package]]
