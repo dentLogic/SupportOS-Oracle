@@ -6,6 +6,24 @@ otherwise.
 
 ## Slice 2
 
+- **The settings store** (slice2/settings, branch tip a18db56 after CI#35
+  went green): `core::settings` exposes generic `get`/`set` (SQLite upsert so
+  a write replaces), `remove` (idempotent) and `list` (ordered by key) over
+  the v1 `settings` table, plus the first typed boundary: `log.level` is
+  validated against the logging facade's levels on write AND on read —
+  storing an unknown name is invalid input, and a stored name that no longer
+  maps (a hand-edited database) is a settings error rather than a silent
+  fallback. Empty or whitespace-only keys are invalid input: keys are the
+  store's API surface and blank keys are bugs, not data. Values stay raw
+  strings; structured settings (Help Scout connection, providers, theme)
+  arrive with their own subsystem commits and define their own typed
+  boundaries on top of the generic layer. Reason: SPEC 12 wants settings
+  local and persisted; validating at the typed boundary keeps invalid state
+  out of the database (A16) while the generic layer stays trivially reusable.
+  Trade-off: no JSON serialization of structured values yet — each subsystem
+  commits to its own encoding discipline, which is a conscious deferral, not
+  an omission. No new dependencies; the same lockfile ran green.
+
 - **The SQLite foundation** (slice2/sqlite, branch tip aee6f9e after CI run
   36941866117 went green): core::db opens the database with rusqlite 0.40.2
   using the bundled libsqlite3-sys 0.38.2 — the vendored SQLite is compiled

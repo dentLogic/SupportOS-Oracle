@@ -1,37 +1,34 @@
 # PROGRESS
 
-IN PROGRESS: none (between tasks; the SQLite foundation landed; the next
-concern is the settings store, then the job queue, then the UI shell).
+IN PROGRESS: none (between tasks; the settings store landed; the next
+concern is the job queue, then the command-and-event wiring, then the UI
+shell).
 
 Current slice: S2 (Foundation)
-Current task: settings store next (typed get/set over the settings table on
-top of core::db, with tests and one-line shell commands), then the job queue,
-then theming and the UI shell
-Last commit: aee6f9e on slice2/sqlite (the SQLite foundation plus the
-regenerated lockfile and rustfmt pass; code commit 78f57da)
-Latest CI result: SUCCESS — run 36941866117 (aee6f9e) fully green; core
-tests now 15 (version, three error-type, four logging, seven db).
+Current task: job queue next (queued/durable jobs over the database in
+crates/core with tests), then the command-and-event pattern through the thin
+shell, then theming and the UI shell
+Last commit: a18db56 on slice2/settings (the settings store plus the
+rustfmt pass; code commit 77c2174)
+Latest CI result: SUCCESS — run on a18db56 (CI#35) fully green; core
+tests now 23 (version, three error-type, four logging, seven db, eight
+settings).
 
 What the green run proves (verified evidence, not claims):
-- The SQLite foundation works on the pinned toolchain (Rust 1.98.1) with
-  rusqlite 0.40.2 and the bundled libsqlite3-sys 0.38.2: the runner compiled
-  the vendored SQLite, clippy denied warnings over the workspace, and
-  cargo machete/audit/deny accepted the new subtree (bans ok, licenses ok,
-  sources ok).
-- `core::db::open` produces a database whose journal mode is WAL (asserted
-  from the pragma's own answer, not assumed), foreign keys enforced, and all
-  migrations applied; reopening the same file applies nothing new and keeps
-  data. Migration determinism is tested: a modified applied migration, a
-  database newer than the code, a non-ascending list and a failing migration
-  (rolled back completely, no record left) are all rejected with database
-  errors.
-- FTS5 is compiled into the bundled SQLite and usable: the test creates an
-  fts5 virtual table, inserts and matches (the lexical-search layer of SPEC
-  4.2 has its engine available).
-- The push-triggered run on the code commit (36941836510, CI#30) failed at
-  the format check only — hand-formatted code drifted from rustfmt 1.98.1
-  (import ordering, closure collapsing); the Autofix pass corrected it and
-  the tip run is green. Known rustfmt shapes recorded for future commits.
+- The settings store works over the migrated database on the pinned
+  toolchain: set/get round-trip and replace (upsert), missing keys read as
+  None, remove is idempotent, list is ordered by key, and empty or
+  whitespace-only keys are rejected as invalid input.
+- The typed log-level boundary behaves as designed: valid names (any case)
+  round-trip through log.level; unknown names are rejected on write with
+  nothing stored; a tampered stored level is rejected on read with a settings
+  error (no silent fallback, A16).
+- No new dependencies entered the tree (the store uses rusqlite and core
+  modules only); the gates re-ran green on the same lockfile.
+- rustfmt drift on the first push (CI#34 failed at format check only):
+  nested Error::Variant(format!("...")) expressions above ~80 columns and
+  long closure arguments are the shapes rustfmt splits; recorded for future
+  hand-formatting, and the Autofix pass healed it as designed.
 
 What the green run proves for the logging facade (run 36938147864 on 6392268):
 - The logging facade compiles and passes its tests on the pinned toolchain
@@ -63,14 +60,14 @@ Known issues:
   clippy; informational only, tracked for the cargo-audit/deny step.
 
 Next 3 tasks:
-1. Settings store on the SQLite foundation: typed get/set/keys operations
-   over the settings table in crates/core with tests (including the logging
-   level name round-trip), wired to the shell as one-line commands.
-2. The job queue on top of the database with tests, then the command-and-
-   event pattern through the thin shell.
-3. crates/ui shell: leptos_router 0.8, theming, navigation for all 20
+1. Job queue on top of the database: enqueue/claim/complete/fail with tests
+   in crates/core, then the command-and-event pattern through the shell.
+2. crates/ui shell: leptos_router 0.8, theming, navigation for all 20
    reference pages as honest "Not built yet" screens, 404, and the
    command-and-event pattern through the thin shell.
+3. Shell integration wiring: database state managed by the Tauri shell
+   (app data dir), the log level read from settings, and the first real
+   commands (settings get/set) as one-line wrappers.
 
 Reference page inventory (extracted from kimpearce888/supportos App.tsx, S4
 will formalize): Dashboard /, Inbox /inbox, Notifications /notifications,
@@ -131,6 +128,12 @@ History of this slice (S2):
   landed the lockfile, and run 36941866117 on the branch tip went fully
   green with 15 core tests. rusqlite 0.40.2 / libsqlite3-sys 0.38.2
   (bundled, FTS5 flag verified in the upstream build.rs) entered the tree.
+- 77c2174 + a18db56 (autofix fmt; no lockfile change): settings store on
+  slice2/settings — core gains `settings` (generic get/set/remove/list over
+  the v1 table with empty-key rejection, the typed log.level boundary
+  validating on write and read) with eight tests. Push-triggered CI#34
+  failed at the format check only; run CI#35 on the branch tip went fully
+  green with 23 core tests.
 
 History of the previous slice (S1, for the record):
 - a614bf0, def3e75, c7b7b65, 434905e: scaffold, CI, autofix, docs (locally
