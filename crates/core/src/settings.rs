@@ -29,7 +29,9 @@ pub fn get(conn: &Connection, key: &str) -> Result<Option<String>> {
     ) {
         Ok(value) => Ok(Some(value)),
         Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-        Err(e) => Err(Error::Settings(format!("cannot read the setting {key}: {e}"))),
+        Err(e) => Err(Error::Settings(format!(
+            "cannot read the setting {key}: {e}"
+        ))),
     }
 }
 
@@ -65,7 +67,9 @@ pub fn list(conn: &Connection) -> Result<Vec<(String, String)>> {
         .prepare("SELECT key, value FROM settings ORDER BY key")
         .map_err(|e| Error::Settings(format!("cannot list the settings: {e}")))?;
     let rows = stmt
-        .query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)))
+        .query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })
         .map_err(|e| Error::Settings(format!("cannot list the settings: {e}")))?;
 
     let mut entries = Vec::new();
@@ -99,7 +103,9 @@ pub fn log_level(conn: &Connection) -> Result<Option<String>> {
 /// Stores the log level name after validating it maps to a level filter.
 pub fn set_log_level(conn: &Connection, name: &str) -> Result<()> {
     if logging::level_filter_from_name(name).is_none() {
-        return Err(Error::InvalidInput(format!("{name} is not a log level name")));
+        return Err(Error::InvalidInput(format!(
+            "{name} is not a log level name"
+        )));
     }
     set(conn, LOG_LEVEL_KEY, name)
 }
