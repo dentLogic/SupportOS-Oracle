@@ -21,19 +21,27 @@ otherwise.
   file name clean; the deb bundler uses the raw product name for the file name
   and kebab-case for the package name), window title `SupportOS Oracle`.
 
-- **Versions pinned**: Rust 1.98.1 via rust-toolchain.toml (with the
-  wasm32-unknown-unknown target, rustfmt and clippy components — `rustup show`
-  installs it on CI), Tauri 2 (crate requirement `2`, resolved exactly by the
-  Cargo.lock the Autofix workflow commits; tauri 2.12.1 was current when this
-  was authored), leptos `0.8` (0.8.21 current at authoring time), Trunk
-  0.21.14 and tauri-cli 2.12.1 installed on CI with `cargo install --locked`
-  (tauri-cli with its default features — stripping TLS from the CLI has broken
-  the bundler's downloads before).
+- **Versions pinned**: Rust 1.98.1 via rust-toolchain.toml (profile minimal,
+  wasm32-unknown-unknown target, rustfmt and clippy components — CI runs
+  `rustup toolchain install`, which installs exactly that), Tauri 2 (crate
+  requirement `2`, resolved exactly by the committed Cargo.lock; tauri 2.12.1
+  was current when this was authored), leptos `0.8` (0.8.21 current at
+  authoring time). Trunk 0.21.14 and tauri-cli 2.12.1 are installed on CI via
+  taiki-e/install-action@v2.87.22, which fetches the tools' official prebuilt
+  release binaries (tauri-cli with its default features — stripping TLS from
+  the CLI has broken the bundler's downloads before; the prebuilt binaries
+  keep them). Trade-off: prebuilt binaries are trusted instead of compiling
+  from source with `cargo install --locked` (~10 minutes saved per run).
+  Trunk resolves the matching wasm-bindgen-cli version from Cargo.lock and
+  downloads it itself.
 
 - **CI design**: one `ci.yml` with a `build` job on ubuntu-22.04 (Tauri 2
-  Linux prerequisites from the official docs, fmt --check, clippy with warnings
-  denied, cargo test, trunk build, `cargo tauri build --bundles deb`, artifact
-  upload, job summary with failed steps, compiler errors and failed tests) plus
+  Linux prerequisites from the official docs plus libgtk-3-dev, fmt --check,
+  clippy with warnings denied over the whole workspace, cargo test, trunk
+  build, `cargo tauri build --bundles deb`, artifact upload (both
+  target/release/bundle/deb/ and the legacy src-tauri/target/... path, since
+  cargo places workspace output at the workspace root), job summary with
+  failed steps, compiler errors and failed tests) plus
   release jobs that `needs: build`, so a release only happens after green CI.
   Trade-off: workflow_dispatch on CI is required for the Autofix flow because
   pushes made with the workflow token do not trigger workflows.
