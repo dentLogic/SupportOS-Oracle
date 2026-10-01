@@ -1,19 +1,39 @@
 # PROGRESS
 
-IN PROGRESS: none (between tasks; the logging facade landed; the next
-concern is SQLite, then settings and the job queue, then the UI shell).
+IN PROGRESS: none (between tasks; the SQLite foundation landed; the next
+concern is the settings store, then the job queue, then the UI shell).
 
 Current slice: S2 (Foundation)
-Current task: SQLite next (rusqlite 0.40 bundled in crates/core with
-migrations, WAL and FTS5, plus tests), then settings and the job queue, then
-theming and the UI shell
-Last commit: 6392268 on slice2/logging (the logging facade plus the
-regenerated lockfile; code commit aa39692, autofix commit 6392268)
-Latest CI result: SUCCESS — runs 36938079798 (aa39692) and 36938147864
-(6392268) both fully green; core tests now 8 (version, three error-type,
-four logging).
+Current task: settings store next (typed get/set over the settings table on
+top of core::db, with tests and one-line shell commands), then the job queue,
+then theming and the UI shell
+Last commit: aee6f9e on slice2/sqlite (the SQLite foundation plus the
+regenerated lockfile and rustfmt pass; code commit 78f57da)
+Latest CI result: SUCCESS — run 36941866117 (aee6f9e) fully green; core
+tests now 15 (version, three error-type, four logging, seven db).
 
 What the green run proves (verified evidence, not claims):
+- The SQLite foundation works on the pinned toolchain (Rust 1.98.1) with
+  rusqlite 0.40.2 and the bundled libsqlite3-sys 0.38.2: the runner compiled
+  the vendored SQLite, clippy denied warnings over the workspace, and
+  cargo machete/audit/deny accepted the new subtree (bans ok, licenses ok,
+  sources ok).
+- `core::db::open` produces a database whose journal mode is WAL (asserted
+  from the pragma's own answer, not assumed), foreign keys enforced, and all
+  migrations applied; reopening the same file applies nothing new and keeps
+  data. Migration determinism is tested: a modified applied migration, a
+  database newer than the code, a non-ascending list and a failing migration
+  (rolled back completely, no record left) are all rejected with database
+  errors.
+- FTS5 is compiled into the bundled SQLite and usable: the test creates an
+  fts5 virtual table, inserts and matches (the lexical-search layer of SPEC
+  4.2 has its engine available).
+- The push-triggered run on the code commit (36941836510, CI#30) failed at
+  the format check only — hand-formatted code drifted from rustfmt 1.98.1
+  (import ordering, closure collapsing); the Autofix pass corrected it and
+  the tip run is green. Known rustfmt shapes recorded for future commits.
+
+What the green run proves for the logging facade (run 36938147864 on 6392268):
 - The logging facade compiles and passes its tests on the pinned toolchain
   (Rust 1.98.1): level-name mapping (known names, unknown rejection, Info
   default) and the capture-logger test proving the startup record reaches
@@ -25,10 +45,9 @@ What the green run proves (verified evidence, not claims):
   dependency subtree (fern 0.7.1, num_threads, android_log-sys) on the
   committed lockfile (run 36938147864).
 - The tauri-plugin-log API usage was verified against the official 2.10.0
-  source before the push (Builder::new defaults, level(), targets(),
-  TargetKind::LogDir file_name field), and the setup-hook ordering claim
-  against tauri 2.12.1's app.rs: initialize_plugins (build) runs before the
-  setup callback, so the startup record reaches the installed sinks.
+  source before the push, and the setup-hook ordering claim against
+  tauri 2.12.1's app.rs: initialize_plugins (build) runs before the setup
+  callback, so the startup record reaches the installed sinks.
 - New toolchain finding recorded in DECISIONS: cargo-deny's internal cargo
   metadata re-resolves and rewrites a stale lock on the runner before the
   clippy/test steps, so `--locked` no longer fails for additive registry
@@ -44,11 +63,11 @@ Known issues:
   clippy; informational only, tracked for the cargo-audit/deny step.
 
 Next 3 tasks:
-1. crates/core SQLite layer (rusqlite 0.40 bundled — FTS5 enabled by the
-   libsqlite3-sys build flags — migrations, WAL) with tests, wired into the
-   shell only after the layer is green.
-2. Settings store and the job queue on top of the SQLite layer, each with
-   tests and one-line shell commands where the UI needs them.
+1. Settings store on the SQLite foundation: typed get/set/keys operations
+   over the settings table in crates/core with tests (including the logging
+   level name round-trip), wired to the shell as one-line commands.
+2. The job queue on top of the database with tests, then the command-and-
+   event pattern through the thin shell.
 3. crates/ui shell: leptos_router 0.8, theming, navigation for all 20
    reference pages as honest "Not built yet" screens, 404, and the
    command-and-event pattern through the thin shell.
@@ -103,6 +122,15 @@ History of this slice (S2):
   lockfile commit (cargo-deny's metadata step had re-resolved the runner's
   lock; see DECISIONS), autofix landed the regenerated lock as 6392268, and
   run 36938147864 on the branch tip went fully green.
+- 78f57da + aee6f9e (autofix lockfile + fmt): SQLite foundation on
+  slice2/sqlite — core gains `db` (open with WAL verified from the pragma's
+  answer, foreign keys on, deterministic migration machinery with exact-SQL
+  bookkeeping, migration v1 creating the settings table, seven tests incl.
+  FTS5 capability). Push-triggered run 36941836510 failed only at the format
+  check (hand-formatting drift; no code error), autofix corrected it and
+  landed the lockfile, and run 36941866117 on the branch tip went fully
+  green with 15 core tests. rusqlite 0.40.2 / libsqlite3-sys 0.38.2
+  (bundled, FTS5 flag verified in the upstream build.rs) entered the tree.
 
 History of the previous slice (S1, for the record):
 - a614bf0, def3e75, c7b7b65, 434905e: scaffold, CI, autofix, docs (locally

@@ -6,6 +6,30 @@ otherwise.
 
 ## Slice 2
 
+- **The SQLite foundation** (slice2/sqlite, branch tip aee6f9e after CI run
+  36941866117 went green): core::db opens the database with rusqlite 0.40.2
+  using the bundled libsqlite3-sys 0.38.2 — the vendored SQLite is compiled
+  with -DSQLITE_ENABLE_FTS5 (verified in the upstream build.rs), so FTS5
+  needs no system library and is proven at runtime by a test that creates an
+  fts5 virtual table and matches. `open` sets `PRAGMA journal_mode=WAL` and
+  asserts the pragma's own answer is "wal" (a filesystem that silently
+  rejects WAL becomes a database error instead of a silent mode change),
+  turns foreign keys on, and applies the migration list. The migration
+  machinery records each migration's exact SQL in schema_migrations and is
+  deliberately strict: a modified applied migration, a database holding
+  versions the build cannot provide, a non-ascending list, or a failing
+  migration (whole transaction rolled back, no record) all fail with
+  database errors — deterministic migration behavior per SPEC 4.1. Migration
+  v1 creates the settings key-value table, which the next commit's settings
+  store builds on. Reason: SPEC 4.1 mandates SQLite + migrations + WAL + FTS5
+  with persistence in core; exact-SQL bookkeeping makes divergence loud
+  rather than silent (A16). Trade-off: the machinery rejects
+  source-modified migrations instead of rewriting history, so any schema
+  change after release must be a new version, never an edit — the intended
+  discipline. The first push (78f57da) failed only rustfmt (import ordering
+  and closure shapes; the Autofix pass corrected it), which is the designed
+  healing path for hand-formatted commits.
+
 - **Logging facade and the log sink** (slice2/logging, branch tip 6392268
   after CI runs 36938079798 and 36938147864 went green): core emits through
   the plain `log` 0.4 facade and never installs a sink — `core::logging`
