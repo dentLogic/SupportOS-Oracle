@@ -11,6 +11,18 @@ jobs:
   build:
     name: Build, test and package
     runs-on: ubuntu-22.04
+    outputs:
+      job-status: ${{ job.status }}
+      fmt: ${{ steps.fmt.outcome }}
+      comments: ${{ steps.comments.outcome }}
+      unused: ${{ steps.unused.outcome }}
+      audit: ${{ steps.audit.outcome }}
+      deny: ${{ steps.deny.outcome }}
+      clippy: ${{ steps.clippy.outcome }}
+      test: ${{ steps.test.outcome }}
+      trunk: ${{ steps.trunk.outcome }}
+      package: ${{ steps.package.outcome }}
+      errors: ${{ steps.errors.outputs.errors }}
     steps:
       - name: Check out the repository
         uses: actions/checkout@v7.0.1
@@ -99,6 +111,17 @@ jobs:
           # A single search path keeps the artifact flat after download.
           path: target/release/bundle/deb/*.deb
           if-no-files-found: error
+
+      - name: Collect compiler errors and failed tests for the report
+        id: errors
+        if: always()
+        run: |
+          {
+            echo "errors<<ERRORS_EOF"
+            grep -hE '^error' clippy.log test.log 2>/dev/null | head -30 || true
+            grep -hE '^test .* FAILED|^failures:$' test.log 2>/dev/null | head -20 || true
+            echo "ERRORS_EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Write job summary
         if: always()
@@ -257,4 +280,85 @@ jobs:
             echo '```'
             cd packages && sha256sum ./*.deb 2> /dev/null || true
             echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  ci-report:
+    name: CI report comment
+    needs: [build, nightly, tag-release]
+    if: always()
+    runs-on: ubuntu-22.04
+    permissions:
+      # Only this job may touch the repository's issues (A19); every other
+      # job stays at the workflow-level contents: read.
+      issues: write
+    steps:
+      - name: Find or create the CI report issue
+        id: issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          NUMBER=$(gh issue list --state open --search 'CI report in:title' --limit 1 --json number --jq '.[0].number // empty')
+          if [ -z "$NUMBER" ]; then
+            URL=$(gh issue create --title "CI report" --body "Concise CI reports are posted here for every run (docs/SPEC-AMENDMENTS.md, A19).")
+            NUMBER=$(basename "$URL")
+          fi
+          echo "number=$NUMBER" >> "$GITHUB_OUTPUT"
+
+      - name: Post the report comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE: ${{ steps.issue.outputs.number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          JOB_STATUS: ${{ needs.build.outputs.job-status }}
+          NIGHTLY: ${{ needs.nightly.result }}
+          TAG_RELEASE: ${{ needs.tag-release.result }}
+          FMT: ${{ needs.build.outputs.fmt }}
+          COMMENTS: ${{ needs.build.outputs.comments }}
+          UNUSED: ${{ needs.build.outputs.unused }}
+          AUDIT: ${{ needs.build.outputs.audit }}
+          DENY: ${{ needs.build.outputs.deny }}
+          CLIPPY: ${{ needs.build.outputs.clippy }}
+          TEST: ${{ needs.build.outputs.test }}
+          TRUNK: ${{ needs.build.outputs.trunk }}
+          PACKAGE: ${{ needs.build.outputs.package }}
+          ERRORS: ${{ needs.build.outputs.errors }}
+        run: |
+          {
+            echo "## CI report - ${GITHUB_SHA:0:8} on ${GITHUB_REF_NAME}"
+            echo
+            echo "Run: ${RUN_URL} - build job: ${JOB_STATUS}, nightly release: ${NIGHTLY}, tag release: ${TAG_RELEASE}"
+            echo
+            echo "| Step | Outcome |"
+            echo "| ---- | ------- |"
+            echo "| \`cargo fmt --all --check\` | ${FMT} |"
+            echo "| banned comment markers | ${COMMENTS} |"
+            echo "| unused dependencies (cargo machete) | ${UNUSED} |"
+            echo "| RustSec audit (cargo audit) | ${AUDIT} |"
+            echo "| licenses/duplicates/sources (cargo deny) | ${DENY} |"
+            echo "| \`cargo clippy --all-targets -- -D warnings\` | ${CLIPPY} |"
+            echo "| \`cargo test --all\` | ${TEST} |"
+            echo "| \`trunk build\` | ${TRUNK} |"
+            echo "| \`cargo tauri build --bundles deb\` | ${PACKAGE} |"
+            echo
+            echo "### Errors and failed tests (first lines)"
+            echo
+            echo '```'
+            if [ -n "${ERRORS}" ]; then
+              printf '%s\n' "${ERRORS}"
+            else
+              echo "(none)"
+            fi
+            echo '```'
+          } > report.md
+          gh issue comment "$ISSUE" --body-file report.md
+
+      - name: Write job summary
+        if: always()
+        env:
+          ISSUE_URL: ${{ github.server_url }}/${{ github.repository }}/issues/${{ steps.issue.outputs.number }}
+        run: |
+          {
+            echo "## CI report summary"
+            echo
+            echo "The report comment was posted to: ${ISSUE_URL}"
           } >> "$GITHUB_STEP_SUMMARY"
