@@ -297,9 +297,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          NUMBER=$(gh issue list --state open --search 'CI report in:title' --limit 1 --json number --jq '.[0].number // empty')
+          NUMBER=$(gh issue list -R "${GITHUB_REPOSITORY}" --state open --search 'CI report in:title' --limit 1 --json number --jq '.[0].number // empty')
           if [ -z "$NUMBER" ]; then
-            URL=$(gh issue create --title "CI report" --body "Concise CI reports are posted here for every run (docs/SPEC-AMENDMENTS.md, A19).")
+            URL=$(gh issue create -R "${GITHUB_REPOSITORY}" --title "CI report" --body "Concise CI reports are posted here for every run (docs/SPEC-AMENDMENTS.md, A19).")
             NUMBER=$(basename "$URL")
           fi
           echo "number=$NUMBER" >> "$GITHUB_OUTPUT"
@@ -350,7 +350,7 @@ jobs:
             fi
             echo '```'
           } > report.md
-          gh issue comment "$ISSUE" --body-file report.md
+          gh issue comment "$ISSUE" -R "${GITHUB_REPOSITORY}" --body-file report.md
 
       - name: Write job summary
         if: always()
