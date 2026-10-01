@@ -65,9 +65,10 @@ jobs:
         uses: actions/upload-artifact@v7.0.1
         with:
           name: packages
-          path: |
-            target/release/bundle/deb/*.deb
-            src-tauri/target/release/bundle/deb/*.deb
+          # The cargo workspace root is the repo root, so tauri-bundler writes
+          # the DEB into the workspace target directory, not src-tauri/target.
+          # A single search path keeps the artifact flat after download.
+          path: target/release/bundle/deb/*.deb
           if-no-files-found: error
 
       - name: Write job summary
