@@ -1,48 +1,54 @@
 # PROGRESS
 
-Current slice: S1 (Pipeline)
-Current task: Slice 1 pushed with a working token; first CI run in progress
-Last commit: (see `git log -1` — CI hardening commit on top of the four Slice 1 commits)
-Latest CI result: pending (first run triggered by the initial push)
+Current slice: S1 (Pipeline) — COMPLETE per its exit criteria (green CI, .deb on the nightly release)
+Current task: Slice 1 done; waiting for docs/SPEC.md and docs/SPEC-AMENDMENTS.md before Slice 2
+Last commit: 50d3f2b (plus this PROGRESS.md update on top)
+Latest CI result: SUCCESS — run 36865558666
+(https://github.com/dentLogic/SupportOS-Oracle/actions/runs/36865558666)
+on commit 50d3f2bd: fmt, clippy --workspace -D warnings, test, trunk build,
+cargo tauri build --bundles deb, artifact upload, nightly release all green.
 
-Local pre-verification done before the push (sandbox has no webkit/GTK system
-libraries, so the Tauri crate cannot compile locally; CI remains the authority):
-- `cargo fmt --all --check` green on the whole workspace.
-- `cargo clippy -p supportos-oracle-ui --all-targets -- -D warnings` green
-  (both wasm32 and host targets).
-- `cargo generate-lockfile` produced Cargo.lock (534 packages: tauri 2.12.1,
-  leptos 0.8.21, wasm-bindgen 0.2.129); it is committed with the scaffold.
-- `trunk build` green: wasm32 build, wasm-bindgen applied, dist/ produced and
-  `frontendDist: ../dist` resolves from src-tauri.
-- `rustup toolchain install` (from rust-toolchain.toml) verified locally.
-
-CI hardening applied on top of the scaffold (one commit):
-- clippy runs `--workspace` so src-tauri is linted too (it previously only
-  covered the root UI crate).
-- The DEB upload path covers both `target/release/bundle/deb/` (workspace-root
-  target, where cargo puts it for this workspace layout) and the legacy
-  `src-tauri/target/...` path, with `if-no-files-found: error`.
-- Trunk and the Tauri CLI install via taiki-e/install-action (pinned
-  trunk@0.21.14, tauri-cli@2.12.1 — official prebuilt binaries with default
-  features) instead of `cargo install` (saves ~10 min per run).
-- `rustup toolchain install` instead of `rustup show` (rustup warns that
-  auto-install on proxy invocation is deprecated).
-- `libgtk-3-dev` added to the prerequisites (mission lists GTK explicitly).
-- rust-toolchain.toml gained `profile = "minimal"`.
-
-Next 3 tasks:
-1. Watch the first CI run; fix the FIRST error only; repeat until green.
-2. Verify the "nightly" pre-release carries the .deb and its SHA-256 checksum.
-3. Report the session results; wait for docs/SPEC.md and docs/SPEC-AMENDMENTS.md
-   before starting Slice 2 (only Slice 1 is in scope until they exist).
+What the green run proves (verified evidence, not claims):
+- The whole workspace (UI crate + src-tauri) compiles, is rustfmt-clean and
+  clippy-clean with warnings denied on the pinned toolchain (Rust 1.98.1).
+- `cargo test --workspace` passes (app_version command tests).
+- `trunk build` produces the WASM frontend and `cargo tauri build --bundles deb`
+  produces SupportOS-Oracle_0.1.0_amd64.deb, uploaded as a CI artifact.
+- The "nightly" pre-release exists with the .deb and its SHA-256 checksum; the
+  checksum was re-downloaded and verified to match the .deb.
+- The .deb was inspected: Package support-os-oracle, Depends libwebkit2gtk-4.1-0
+  and libgtk-3-0, desktop entry at usr/share/applications/SupportOS-Oracle.desktop,
+  hicolor icons, binary at usr/bin/supportos-oracle.
 
 Known issues:
 - docs/SPEC.md and docs/SPEC-AMENDMENTS.md are missing from the repo: per the
-  mission, only Slice 1 is in scope until they are added.
-- Still unverified by any CI run: src-tauri clippy/test, `cargo tauri build
-  --bundles deb`, and the nightly/tag release jobs.
+  mission, ONLY Slice 1 is in scope until they are added. Waiting on the owner.
+- Depends lists libwebkit2gtk-4.1-0 and libgtk-3-0 twice each (explicit
+  declaration in tauri.conf.json plus the bundler's auto-detection). Harmless;
+  will be cleaned up when the packaging slice revisits it.
 
-Pages done: none (Slice 1 has no application pages; the window shows the title
-and the app version from the `app_version` command)
+Next 3 tasks (blocked on the specs being added):
+1. Owner adds docs/SPEC.md and docs/SPEC-AMENDMENTS.md to the repo.
+2. Slice 2 Foundation: workspace restructure into crates/core + crates/ui + the
+   Tauri shell, CI green before and after.
+3. Slice 2 continues: SQLite (WAL, FTS5, migrations), settings, job queue,
+   error type, logging, theming, UI shell with navigation and honest
+   "not built yet" screens for every reference page.
+
+Pages done: the main window — title "SupportOS Oracle" and the app version
+displayed through the working `app_version` command (launches via the desktop
+entry the .deb installs).
 Pages remaining: all reference pages (S2 creates the navigation shell with
-honest "not built yet" screens)
+honest "not built yet" screens).
+
+History of this slice (for the record):
+- a614bf0, def3e75, c7b7b65, 434905e: scaffold, CI, autofix, docs (locally
+  pre-verified: fmt, clippy on the UI crate, lockfile, a full trunk build).
+- 79a87a7: CI hardening (workspace-wide clippy, prebuilt pinned tools,
+  explicit toolchain install, DEB path coverage, libgtk-3-dev).
+  First CI run (36864306949): build job green; nightly job failed — the
+  artifact nested the .deb under target/release/bundle/deb/, so the flat
+  *.deb glob in the release job found no files.
+- 50d3f2b: fix the artifact path (single search path; the DEB lives in the
+  workspace-root target directory). Second CI run (36865558666): fully green,
+  nightly assets in place.
