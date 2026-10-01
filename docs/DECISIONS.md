@@ -6,6 +6,19 @@ otherwise.
 
 ## Slice 2
 
+- **Application error type** (slice2/error-type, merged to main as 937f740
+  after CI run 36890453528 went green): `core::error::Error` carries one
+  variant per Slice 2 subsystem (Database, Settings, JobQueue) plus
+  InvalidInput and Io, with thiserror 2 providing Display and
+  std::error::Error, and a `Result<T>` alias used across core operations.
+  The message format is "subsystem: detail" so the UI can render a
+  human-readable explanation while internals stay behind the type (SPEC 20,
+  A16). Tests assert every variant renders a non-empty subsystem-prefixed
+  message and the std trait implementation. Reason: the S2 module list names
+  the error type explicitly, and every later module (SQLite, settings, jobs)
+  returns it. Trade-off: variants exist before their subsystems land — they
+  map exactly to the S2 mandate, nothing beyond it.
+
 - **Supply-chain gates and the CI report comment** (slice2/supply-chain-gates,
   merged to main as eefe78a after CI run 36889519391 went green): CI adds
   cargo-audit 0.22.2 (fails on RustSec vulnerabilities; maintenance-level

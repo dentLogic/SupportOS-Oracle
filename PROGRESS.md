@@ -1,18 +1,15 @@
 # PROGRESS
 
-IN PROGRESS: none (between tasks; the supply-chain gates and the CI report
-comment landed; the next concern is the foundation modules in crates/core
-and the UI shell).
+IN PROGRESS: none (between tasks; the application error type landed; the
+next concern is the logging facade, then SQLite).
 
-Current slice: S2 (Foundation) — A18/A19 CI gates LANDED
-Current task: foundation modules (error type, logging, SQLite, settings,
-job queue, command-and-event) and the UI shell with navigation
-Last commit: eefe78a on slice2/supply-chain-gates (merged to main after CI
-run 36889519391 went green)
-Latest CI result: SUCCESS — run 36889519391 on eefe78a: fmt, banned-comment
-gate, cargo-machete, cargo audit, cargo deny, clippy -D warnings, test,
-trunk build, DEB packaging, artifact upload green; the ci-report job posted
-the run's report as issue comment #1 (issue "CI report").
+Current slice: S2 (Foundation)
+Current task: logging facade next (log in core + tauri-plugin-log in the
+shell), then SQLite/settings/job queue, then theming and the UI shell
+Last commit: 937f740 on slice2/error-type (merged to main after CI run
+36890453528 went green)
+Latest CI result: SUCCESS — run 36890453528 on 937f740: all gates and
+build steps green, core tests now 4 (version + three error-type tests).
 
 What the green run proves (verified evidence, not claims):
 - The restructured workspace (crates/core + crates/ui + thin src-tauri)
@@ -35,10 +32,11 @@ Known issues:
   clippy; informational only, tracked for the cargo-audit/deny step.
 
 Next 3 tasks:
-1. crates/core foundation: application error type (thiserror) with tests,
-   then the logging facade (log) wired to tauri-plugin-log in the shell.
-2. crates/core SQLite layer (rusqlite bundled, migrations, WAL, FTS5) with
-   tests, then settings and the job queue behind it.
+1. Logging: the log facade in crates/core with a test, wired to
+   tauri-plugin-log 2.10 in the shell (stdout + log file sink).
+2. crates/core SQLite layer (rusqlite 0.40 bundled — FTS5 enabled by the
+   libsqlite3-sys build flags — migrations, WAL) with tests, then settings
+   and the job queue behind it.
 3. crates/ui shell: leptos_router 0.8, theming, navigation for all 20
    reference pages as honest "Not built yet" screens, 404, and the
    command-and-event pattern through the thin shell.
@@ -80,6 +78,10 @@ History of this slice (S2):
   resolve the repository without a checkout — now passes -R) on
   slice2/supply-chain-gates. CI run 36889519391 green; issue #1 "CI report"
   created with the first report comment.
+- 65c656f + 937f740 (autofix lockfile): application error type in
+  crates/core (thiserror 2, one variant per S2 subsystem plus invalid input
+  and I/O, Result alias, three tests). CI run 36890453528 green, merged to
+  main.
 
 History of the previous slice (S1, for the record):
 - a614bf0, def3e75, c7b7b65, 434905e: scaffold, CI, autofix, docs (locally
