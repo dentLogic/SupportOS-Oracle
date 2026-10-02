@@ -89,8 +89,7 @@ pub fn enqueue(conn: &Connection, kind: &str, payload: &str, now: i64) -> Result
     )
     .map_err(|e| Error::JobQueue(format!("cannot enqueue the {kind} job: {e}")))?;
     let id = conn.last_insert_rowid();
-    get(conn, id)?
-        .ok_or_else(|| Error::JobQueue("the enqueued job cannot be read back".into()))
+    get(conn, id)?.ok_or_else(|| Error::JobQueue("the enqueued job cannot be read back".into()))
 }
 
 /// Claims the oldest runnable job (run-at time reached) and marks it
@@ -110,8 +109,9 @@ pub fn claim_next(conn: &mut Connection, now: i64) -> Result<Option<Job>> {
     ) {
         Ok(raw) => raw,
         Err(rusqlite::Error::QueryReturnedNoRows) => {
-            tx.commit()
-                .map_err(|e| Error::JobQueue(format!("cannot commit the claim transaction: {e}")))?;
+            tx.commit().map_err(|e| {
+                Error::JobQueue(format!("cannot commit the claim transaction: {e}"))
+            })?;
             return Ok(None);
         }
         Err(e) => {
@@ -364,8 +364,7 @@ mod tests {
     #[test]
     fn enqueue_stores_a_queued_job() {
         let conn = test_conn();
-        let job = enqueue(&conn, "sync.inbox", "{}", NOW)
-            .expect("the enqueue should succeed");
+        let job = enqueue(&conn, "sync.inbox", "{}", NOW).expect("the enqueue should succeed");
         assert_eq!(job.id, 1);
         assert_eq!(job.kind, "sync.inbox");
         assert_eq!(job.state, JobState::Queued);
@@ -391,8 +390,7 @@ mod tests {
     #[test]
     fn claiming_respects_run_at_and_order() {
         let conn = &mut test_conn();
-        enqueue(&conn, "index.rebuild", "first", NOW)
-            .expect("the first enqueue should succeed");
+        enqueue(&conn, "index.rebuild", "first", NOW).expect("the first enqueue should succeed");
         enqueue(&conn, "index.rebuild", "second", NOW + 100)
             .expect("the second enqueue should succeed");
 
@@ -418,12 +416,14 @@ mod tests {
     #[test]
     fn completing_requires_the_running_state() {
         let conn = &mut test_conn();
-        let job = enqueue(&conn, "sync.inbox", "{}", NOW)
-            .expect("the enqueue should succeed");
+        let job = enqueue(&conn, "sync.inbox", "{}", NOW).expect("the enqueue should succeed");
 
         match complete(&conn, job.id, NOW + 1) {
             Err(Error::JobQueue(message)) => {
-                assert!(message.contains("cannot be marked finished"), "unexpected: {message}");
+                assert!(
+                    message.contains("cannot be marked finished"),
+                    "unexpected: {message}"
+                );
             }
             other => panic!("completing a queued job must fail, got {other:?}"),
         }
@@ -437,7 +437,10 @@ mod tests {
 
         match complete(&conn, job.id, NOW + 3) {
             Err(Error::JobQueue(message)) => {
-                assert!(message.contains("cannot be marked finished"), "unexpected: {message}");
+                assert!(
+                    message.contains("cannot be marked finished"),
+                    "unexpected: {message}"
+                );
             }
             other => panic!("completing a finished job must fail, got {other:?}"),
         }
@@ -446,8 +449,7 @@ mod tests {
     #[test]
     fn failing_requeues_with_backoff_then_gives_up() {
         let conn = &mut test_conn();
-        let job = enqueue(&conn, "sync.inbox", "{}", NOW)
-            .expect("the enqueue should succeed");
+        let job = enqueue(&conn, "sync.inbox", "{}", NOW).expect("the enqueue should succeed");
         let policy = three_attempts();
 
         // First failure: back to queued with a backoff.
@@ -455,14 +457,21 @@ mod tests {
         let state = fail_attempt(conn, job.id, "provider unreachable", NOW + 10, &policy)
             .expect("the first failure should be recorded");
         assert_eq!(state, JobState::Queued);
-        let requeued = get(&conn, job.id).expect("the job should read back").unwrap();
+        let requeued = get(&conn, job.id)
+            .expect("the job should read back")
+            .unwrap();
         assert_eq!(requeued.attempts, 1);
         assert_eq!(requeued.run_at, NOW + 10 + 5);
-        assert_eq!(requeued.last_error, Some("provider unreachable".to_string()));
+        assert_eq!(
+            requeued.last_error,
+            Some("provider unreachable".to_string())
+        );
 
         // Not runnable before the backoff elapses.
         assert!(
-            claim_next(conn, NOW + 14).expect("the early claim should succeed").is_none(),
+            claim_next(conn, NOW + 14)
+                .expect("the early claim should succeed")
+                .is_none(),
             "the backoff must hold"
         );
 
@@ -477,17 +486,24 @@ mod tests {
         let state = fail_attempt(conn, job.id, "giving up", NOW + 30, &policy)
             .expect("the third failure should be recorded");
         assert_eq!(state, JobState::Failed);
-        let failed = get(&conn, job.id).expect("the job should read back").unwrap();
+        let failed = get(&conn, job.id)
+            .expect("the job should read back")
+            .unwrap();
         assert_eq!(failed.attempts, 3);
         assert_eq!(failed.last_error, Some("giving up".to_string()));
 
         assert!(
-            claim_next(conn, NOW + 10_000).expect("the late claim should succeed").is_none(),
+            claim_next(conn, NOW + 10_000)
+                .expect("the late claim should succeed")
+                .is_none(),
             "a failed job must not run again"
         );
         match fail_attempt(conn, job.id, "late", NOW + 40, &policy) {
             Err(Error::JobQueue(message)) => {
-                assert!(message.contains("cannot fail an attempt"), "unexpected: {message}");
+                assert!(
+                    message.contains("cannot fail an attempt"),
+                    "unexpected: {message}"
+                );
             }
             other => panic!("failing a failed job must fail, got {other:?}"),
         }
@@ -496,10 +512,10 @@ mod tests {
     #[test]
     fn cancellation_only_touches_queued_jobs() {
         let conn = &mut test_conn();
-        let first = enqueue(&conn, "sync.inbox", "one", NOW)
-            .expect("the first enqueue should succeed");
-        let second = enqueue(&conn, "sync.inbox", "two", NOW)
-            .expect("the second enqueue should succeed");
+        let first =
+            enqueue(&conn, "sync.inbox", "one", NOW).expect("the first enqueue should succeed");
+        let second =
+            enqueue(&conn, "sync.inbox", "two", NOW).expect("the second enqueue should succeed");
         // The oldest runnable job is claimed first: `first` becomes running.
         claim_next(conn, NOW).expect("the claim should pick the first job");
 
@@ -515,7 +531,10 @@ mod tests {
             "a queued job should be cancellable"
         );
         let cancelled = get(&conn, second.id).expect("the cancelled job should read back");
-        assert_eq!(cancelled.expect("the job exists").state, JobState::Cancelled);
+        assert_eq!(
+            cancelled.expect("the job exists").state,
+            JobState::Cancelled
+        );
 
         assert!(
             !cancel(&conn, second.id, NOW + 4).expect("the second cancel should answer"),
@@ -541,12 +560,13 @@ mod tests {
         assert_eq!(queued.len(), 1);
         assert_eq!(queued[0].payload, "two");
 
-        let running = list_by_state(&conn, JobState::Running).expect("the running list should work");
+        let running =
+            list_by_state(&conn, JobState::Running).expect("the running list should work");
         assert_eq!(running.len(), 1);
         assert_eq!(running[0].payload, "one");
 
-        let succeeded = list_by_state(&conn, JobState::Succeeded)
-            .expect("the succeeded list should work");
+        let succeeded =
+            list_by_state(&conn, JobState::Succeeded).expect("the succeeded list should work");
         assert_eq!(succeeded.len(), 0);
     }
 
