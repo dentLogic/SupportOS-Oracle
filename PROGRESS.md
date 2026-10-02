@@ -8,21 +8,26 @@ the verifications, the v* release workflow and the version consistency
 check, plus the scheduled Depends deduplication.
 
 Current slice: S3 (Packaging)
-Current task: RPM packaging (bundle targets deb,rpm in one cargo-tauri
-invocation, attach the RPM plus its sha256 to the nightly); after that
-AppImage, then the smoke tests and the remaining A33 items
-Last commit: 70b069b on main (slice3/depends-dedup fast-forward merged:
-the explicit deb.depends entries dropped; the rebuilt DEB's control now
-lists libwebkit2gtk-4.1-0 and libgtk-3-0 exactly once each)
-Latest CI result: SUCCESS — 36979031768 on main (70b069b) with the Nightly
-job rebuilding the DEB at 2026-10-02T07:35:50Z (3,968,668 bytes; that
-exact asset was re-downloaded and its sha256
-10c8e9386a7ebffe72e24b293605fc022c7dc70a460ce4ade1d8aa3a736d1fff matches
-the digest published beside it in the release); 31 core tests (db, settings,
-jobs, logging, error) plus 2 nav tests. NOTE: every merge to main replaces
-the nightly asset, so a digest recorded here ages immediately — when
-installing, verify the download against the .sha256 asset published next
-to the DEB in the Nightly release, which always matches the current bytes.
+Current task: AppImage packaging (add the appimage bundle target, attach
+it to the nightly); after that the install/uninstall smoke tests and the
+remaining A33 items
+Last commit: 9037830 on main (slice3/rpm fast-forward merged: the RPM is
+built in CI and attached to the nightly with its sha256; the RPM carries
+explicit Fedora package Requires plus the rpm crate's soname Requires)
+Latest CI result: SUCCESS — 36982949308 on main (9037830) with the Nightly
+job publishing four assets at 2026-10-02T08:18:25Z: DEB 3,968,672 bytes
+(sha256 39776bad...22f9, re-downloaded and verified against the published
+.sha256 asset) and RPM 3,969,769 bytes (sha256 9929db08...15e3, likewise
+re-downloaded and verified). The RPM header was inspected off-line:
+name support-os-oracle, version 0.1.0, release 1, arch x86_64, Requires
+webkit2gtk4.1 + gtk3 (explicit Fedora names) and libwebkit2gtk-4.1.so.0()(64bit)
++ libgtk-3.so.0()(64bit) (auto-generated sonames), with the same
+file layout as the DEB (/usr/bin/supportos-oracle, .desktop, hicolor
+icons); 31 core tests (db, settings, jobs, logging, error) plus 2 nav
+tests. NOTE: every merge to main replaces the nightly assets, so a digest
+recorded here ages immediately — when installing, verify the download
+against the .sha256 assets published next to the packages in the Nightly
+release, which always match the current bytes.
 
 What the green run proves (verified evidence, not claims):
 - The Leptos router shell builds for wasm32 through trunk: leptos_router
@@ -140,15 +145,13 @@ own dependency detection.
   clippy; informational only, tracked for the cargo-audit/deny step.
 
 Next 3 tasks:
-1. RPM packaging: build the RPM in the same cargo-tauri invocation
-   (bundle targets deb,rpm), widen the artifact upload and attach the RPM
-   (plus its sha256) to the nightly release.
-2. AppImage packaging: add the appimage bundle target, upload and attach
-   it to the nightly release.
-3. Install/uninstall smoke tests and the A33 verifications: Ubuntu apt
-   verification, Fedora dnf container verification, AppImage xvfb
-   verification, the v* release workflow and the version consistency
-   check.
+1. AppImage packaging: add the appimage bundle target, upload and attach
+   the AppImage (plus its sha256) to the nightly release.
+2. Install/uninstall smoke tests: Ubuntu apt install/remove of the nightly
+   DEB and Fedora dnf install/remove of the nightly RPM in containers.
+3. The remaining A33 verifications: Ubuntu apt verification, Fedora dnf
+   container verification, AppImage xvfb verification, the v* release
+   workflow and the version consistency check.
 
 Reference page inventory (extracted from kimpearce888/supportos App.tsx, S4
 will formalize): Dashboard /, Inbox /inbox, Notifications /notifications,
@@ -310,7 +313,20 @@ History of this slice (S3):
   release's .sha256 asset): dpkg-deb -f now reports
   "Depends: libwebkit2gtk-4.1-0, libgtk-3-0" — each package exactly
   once (the pre-dedup 05:56:27Z build listed both twice). CI
-  36979031768 green on main. This commit records that result.
+  36979031768 green on main. The docs commit b843486 recorded that result.
+- 9037830 (slice3/rpm): the CI package step now runs
+  `cargo tauri build --bundles deb,rpm`; the packages artifact keeps
+  deb/ and rpm/ subdirectories (multi-path upload roots at the least
+  common ancestor), and both the nightly and the v* tag-release jobs
+  attach the RPM beside the DEB with per-package .sha256 assets, failing
+  if either format is missing. tauri.conf.json declares the Fedora names
+  webkit2gtk4.1 and gtk3 in bundle.linux.rpm.depends (the RPM bundler
+  has no package-level auto-detection, unlike the DEB bundler — see
+  DECISIONS.md). Verified on the nightly (08:18:25Z): four assets,
+  both digests re-checked, RPM header inspected (name support-os-oracle,
+  0.1.0-1 x86_64, package + soname Requires, DEB-equivalent file layout).
+  Branch CI 36982470703 green; main CI 36982949308 green. This commit
+  records that result.
 
 History of the previous slice (S1, for the record):
 - a614bf0, def3e75, c7b7b65, 434905e: scaffold, CI, autofix, docs (locally

@@ -427,11 +427,22 @@ otherwise.
   deb` step and the release jobs are still only verifiable on GitHub
   Actions.
 
-- **DEB runtime dependencies declared** in tauri.conf.json
-  (`libwebkit2gtk-4.1-0`, `libgtk-3-0`). Reason: the mission requires the
-  package manager to install runtime dependencies; the tauri-bundler does not
-  add them automatically. Trade-off: the list is hand-maintained and will be
-  verified by the install smoke tests in Slice 3.
+- **Linux runtime dependency declarations are per format** (Slice 3,
+  corrected from the earlier belief that the tauri-bundler adds nothing
+  automatically). The DEB needs no explicit `deb.depends`: the bundler's
+  own detection emits `libwebkit2gtk-4.1-0, libgtk-3-0`, and the explicit
+  entries we first declared only duplicated that list (removed in 70b069b;
+  the rebuilt DEB verified to list each package once). The RPM is the
+  opposite: its bundler has no package-level auto-detection, so
+  `bundle.linux.rpm.depends` declares the Fedora names `webkit2gtk4.1`
+  and `gtk3` explicitly (names verified against the Fedora MDAPI for
+  released F43/F44), while the `rpm` crate itself auto-generates the
+  soname requirements (libwebkit2gtk-4.1.so.0()(64bit),
+  libgtk-3.so.0()(64bit)) — verified in the built RPM header. Trade-off:
+  the RPM package names are Fedora-specific (openSUSE/RHEL use different
+  names, and their dnf/zypper resolvers can also satisfy the soname
+  requirements directly); the A33 verification targets Fedora only, and
+  the install/uninstall smoke tests keep the whole list honest.
 
 - **Runner image**: ubuntu-22.04 (mission requirement; still a hosted image at
   authoring time). Trade-off: older system libraries than 24.04; the DEB stays
