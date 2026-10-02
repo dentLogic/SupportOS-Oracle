@@ -1,33 +1,34 @@
 # PROGRESS
 
-IN PROGRESS: none (between tasks; the job queue landed; the next concern is
-the shell wiring (database state + settings commands), then the UI shell).
+IN PROGRESS: none (between tasks; the navigation shell landed; the next
+concern is theming, then the settings-wired commands).
 
 Current slice: S2 (Foundation)
-Current task: shell wiring next (the Tauri shell opens the database in its
-app data directory, manages it as state, reads the log level from settings,
-and exposes settings commands as one-line wrappers), then the UI shell
-Last commit: 06e3435 on slice2/jobs (the durable job queue; two fix commits
-for clippy needless borrows and one refit rustfmt line)
-Latest CI result: SUCCESS — CI#41 (06e3435) fully green; core tests now 31
-(version, three error-type, four logging, seven db, eight settings, eight
-jobs).
+Current task: theming next (CSS custom properties, light/dark palettes,
+following the system preference), then the command-and-event wiring for
+settings (theme toggle persisted through the settings store)
+Last commit: e3fbbf1 on slice2/ui-shell (the navigation shell plus the
+regenerated lockfile; code commit d15d534)
+Latest CI result: SUCCESS — CI#45 (e3fbbf1) and the push-triggered CI#44
+(d15d534) both fully green; 31 core tests plus 2 nav tests.
 
 What the green run proves (verified evidence, not claims):
-- The durable job queue works on the pinned toolchain: enqueue stores a
-  queued job; claiming respects run-at times and (run_at, id) order and
-  marks the job running; completing requires the running state (completing
-  a queued or finished job is a job-queue error); a failed attempt requeues
-  with backoff while the attempt budget lasts and then fails terminally;
-  cancellation only touches queued jobs (running jobs answer false, unknown
-  ids are errors); lists are per state and ordered.
-- Failure visibility is durable: attempts are counted, the last error text
-  is stored, failed jobs stay in the table, and the database itself rejects
-  unknown states (the migration v2 CHECK constraint — tested).
-- The loop worked as designed: CI#39 caught the first real error
-  (clippy::needless_borrow in the tests, 26 occurrences — `conn` was already
-  a &mut Connection), fixed in 517ed80; CI#40 caught one refit rustfmt line
-  (a line that fit again after the fix), collapsed in 06e3435; CI#41 green.
+- The Leptos router shell builds for wasm32 through trunk: leptos_router
+  0.8.16 compiled into the UI crate, and the DEB packaged green with the
+  new frontend. The nav inventory test holds: 20 unique paths and labels.
+- The shell is structurally complete: a Router wraps the persistent sidebar
+  (all 20 reference links via the A component) and the routed content; the
+  root and every reference route render the honest Not-built-yet page; any
+  unknown route renders the 404 fallback. What CI cannot prove: on-screen
+  rendering — the owner's launch check of the nightly DEB is the exit
+  criterion evidence.
+- The command-and-event pattern stays demonstrated by app_version: the UI
+  invokes the one-line shell command over the tested core function and
+  renders "unknown" on failure rather than a guess.
+- Process note: the first push accidentally committed to local main (branch
+  creation failed in the same command); nothing was pushed and the commit
+  was moved to the branch with local main reset to origin/main — remote
+  main never moved.
 
 What the green run proves for the logging facade (run 36938147864 on 6392268):
 - The logging facade compiles and passes its tests on the pinned toolchain
@@ -59,15 +60,14 @@ Known issues:
   clippy; informational only, tracked for the cargo-audit/deny step.
 
 Next 3 tasks:
-1. Shell wiring: open the database at the app's data directory in the Tauri
-   setup, manage it as state, read the log level from settings (falling
-   back loudly), and add settings get/set commands as one-line wrappers.
-2. crates/ui shell: leptos_router 0.8, theming, navigation for all 20
-   reference pages as honest "Not built yet" screens, 404, and the
-   command-and-event pattern through the thin shell.
+1. Theming: CSS custom properties with light/dark palettes in the shell,
+   following the system color-scheme preference (no fake controls).
+2. Settings-wired commands: the shell opens the database in the app data
+   directory, manages it as state, and exposes settings get/set commands
+   (one-line wrappers); the theme toggle persists through them.
 3. End-of-slice verification: confirm the exit criteria (CI green, nightly
-   installs and launches, every navigation item opens) and update the
-   docs before asking for the slice review.
+   installs and launches, every navigation item opens) and update the docs
+   before asking for the slice review.
 
 Reference page inventory (extracted from kimpearce888/supportos App.tsx, S4
 will formalize): Dashboard /, Inbox /inbox, Notifications /notifications,
@@ -79,11 +79,12 @@ Sync Health /sync-health, Settings /settings; plus /onboarding and detail
 routes (/inbox/conversation/:id, /customers/:id, /organizations/:id,
 /incidents/:id) and the 404 fallback.
 
-Pages done: the main window — title "SupportOS Oracle" and the app version
-displayed through the working `app_version` command (now a one-line wrapper
-over core::app::version()).
-Pages remaining: all reference pages (S2 creates the navigation shell with
-honest "Not built yet" screens).
+Pages done: the main window — the persistent shell with sidebar navigation
+for all 20 reference pages, honest "Not built yet" pages on every route,
+the 404 fallback, and the app version displayed through the working
+`app_version` command (a one-line wrapper over core::app::version()).
+Pages remaining: all reference pages' real screens (later slices); the
+shell itself is built — theming arrives next.
 
 History of this slice (S2):
 - 2e34dc4 + dade1e6 + 449c1ec (autofix lockfile): workspace restructure on
@@ -142,6 +143,13 @@ History of this slice (S2):
   clippy::needless_borrow (26 test call sites), fixed in 517ed80; CI#40
   caught one refit line, collapsed in 06e3435; CI#41 fully green with 31
   core tests.
+- d15d534 + e3fbbf1 (autofix lockfile): navigation shell on slice2/ui-shell
+  — the UI crate gains leptos_router 0.8 (no extra features needed; the
+  crate has no csr feature flag), a nav inventory module (20 reference
+  entries, tested), the NotBuiltYet/NotFound pages, and the App shell
+  (Router, sidebar, routed content, version footer). CI#44 green on the
+  first push (no fmt drift), CI#45 green on the branch tip with the
+  regenerated lockfile.
 
 History of the previous slice (S1, for the record):
 - a614bf0, def3e75, c7b7b65, 434905e: scaffold, CI, autofix, docs (locally

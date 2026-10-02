@@ -6,6 +6,23 @@ otherwise.
 
 ## Slice 2
 
+- **The navigation shell** (slice2/ui-shell, branch tip e3fbbf1 after CI#44
+  and CI#45 went green): the UI crate gains leptos_router 0.8 (plain
+  dependency — the crate needs no feature flags for client-side routing;
+  its only features are ssr/nightly/tracing) and the shell structure:
+  `<Router>` wraps the persistent sidebar (one `<A>` link per reference
+  entry, driven by a const nav inventory module with tests: 20 unique
+  paths/labels) and the routed content; the root and each reference route
+  render the honest NotBuiltYet page (title plus "Not built yet", no fake
+  controls or data), unknown routes render the 404 fallback, and the
+  version footer keeps the app_version command demonstration (failure
+  renders "unknown", never a guess). Reason: A23 requires navigation for
+  every reference page with honest targets, and SPEC 13 requires the
+  persistent shell, 404 and readable accessible text (semantic nav/list
+  elements, aria-label). Trade-off: on-screen rendering is not CI-provable
+  — the exit-criterion evidence is the owner launching the nightly DEB;
+  theming and settings-wired commands land as their own commits.
+
 - **The durable job queue** (slice2/jobs, branch tip 06e3435 after CI#41
   went green): migration v2 creates `jobs` with a CHECK constraint keeping
   the state set closed at the database level (queued, running, succeeded,
