@@ -98,18 +98,22 @@ jobs:
         working-directory: crates/ui
         run: trunk build
 
-      - name: Package (DEB)
+      - name: Package (DEB, RPM)
         id: package
-        run: cargo tauri build --bundles deb
+        run: cargo tauri build --bundles deb,rpm
 
       - name: Upload packages
         uses: actions/upload-artifact@v7.0.1
         with:
           name: packages
           # The cargo workspace root is the repo root, so tauri-bundler writes
-          # the DEB into the workspace target directory, not src-tauri/target.
-          # A single search path keeps the artifact flat after download.
-          path: target/release/bundle/deb/*.deb
+          # the bundles into the workspace target directory, not src-tauri/target.
+          # Multiple search paths make upload-artifact root the artifact at the
+          # least common ancestor (target/release/bundle), so the artifact keeps
+          # deb/ and rpm/ subdirectories after download.
+          path: |
+            target/release/bundle/deb/*.deb
+            target/release/bundle/rpm/*.rpm
           if-no-files-found: error
 
       - name: Collect compiler errors and failed tests for the report
@@ -155,7 +159,7 @@ jobs:
             echo "| \`cargo clippy --all-targets -- -D warnings\` | ${CLIPPY} |"
             echo "| \`cargo test --all\` | ${TEST} |"
             echo "| \`trunk build\` | ${TRUNK} |"
-            echo "| \`cargo tauri build --bundles deb\` | ${PACKAGE} |"
+            echo "| \`cargo tauri build --bundles deb,rpm\` | ${PACKAGE} |"
             echo
             echo "### Compiler errors (Lint step, first 30 lines)"
             echo
@@ -209,10 +213,17 @@ jobs:
           done
           cd packages
           shopt -s nullglob
-          for deb in *.deb; do
-            sha256sum "$deb" > "${deb}.sha256"
+          debs=(deb/*.deb)
+          rpms=(rpm/*.rpm)
+          if [ "${#debs[@]}" -eq 0 ] || [ "${#rpms[@]}" -eq 0 ]; then
+            echo "Expected at least one DEB and one RPM in the packages artifact" >&2
+            ls -R . >&2
+            exit 1
+          fi
+          for pkg in "${debs[@]}" "${rpms[@]}"; do
+            sha256sum "$pkg" > "${pkg}.sha256"
           done
-          gh release upload nightly ./*.deb ./*.sha256 --clobber
+          gh release upload nightly "${debs[@]}" "${rpms[@]}" deb/*.sha256 rpm/*.sha256 --clobber
 
       - name: Write job summary
         if: always()
@@ -226,7 +237,7 @@ jobs:
             echo "${RELEASE_URL}"
             echo
             echo '```'
-            cd packages && sha256sum ./*.deb 2> /dev/null || true
+            cd packages && sha256sum deb/*.deb rpm/*.rpm 2> /dev/null || true
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -261,10 +272,17 @@ jobs:
           done
           cd packages
           shopt -s nullglob
-          for deb in *.deb; do
-            sha256sum "$deb" > "${deb}.sha256"
+          debs=(deb/*.deb)
+          rpms=(rpm/*.rpm)
+          if [ "${#debs[@]}" -eq 0 ] || [ "${#rpms[@]}" -eq 0 ]; then
+            echo "Expected at least one DEB and one RPM in the packages artifact" >&2
+            ls -R . >&2
+            exit 1
+          fi
+          for pkg in "${debs[@]}" "${rpms[@]}"; do
+            sha256sum "$pkg" > "${pkg}.sha256"
           done
-          gh release upload "${GITHUB_REF_NAME}" ./*.deb ./*.sha256 --clobber
+          gh release upload "${GITHUB_REF_NAME}" "${debs[@]}" "${rpms[@]}" deb/*.sha256 rpm/*.sha256 --clobber
 
       - name: Write job summary
         if: always()
@@ -278,7 +296,7 @@ jobs:
             echo "${RELEASE_URL}"
             echo
             echo '```'
-            cd packages && sha256sum ./*.deb 2> /dev/null || true
+            cd packages && sha256sum deb/*.deb rpm/*.rpm 2> /dev/null || true
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -338,7 +356,7 @@ jobs:
             echo "| \`cargo clippy --all-targets -- -D warnings\` | ${CLIPPY} |"
             echo "| \`cargo test --all\` | ${TEST} |"
             echo "| \`trunk build\` | ${TRUNK} |"
-            echo "| \`cargo tauri build --bundles deb\` | ${PACKAGE} |"
+            echo "| \`cargo tauri build --bundles deb,rpm\` | ${PACKAGE} |"
             echo
             echo "### Errors and failed tests (first lines)"
             echo
