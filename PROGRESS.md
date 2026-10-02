@@ -8,15 +8,16 @@ the verifications, the v* release workflow and the version consistency
 check, plus the scheduled Depends deduplication.
 
 Current slice: S3 (Packaging)
-Current task: first S3 concern — deduplicate the DEB Depends (remove the
-explicit deb.depends entries that duplicate the bundler's own detection);
-then RPM, then AppImage, then the smoke tests and the remaining A33 items
-Last commit: 09a8b47 on main (slice2/s2-launch-check fast-forward merged:
-the launch-check record and the slice-review request)
-Latest CI result: SUCCESS — 36972800354 on main (09a8b47) with the Nightly
-job rebuilding the DEB at 2026-10-02T06:21:11Z (3,968,670 bytes; that
+Current task: RPM packaging (bundle targets deb,rpm in one cargo-tauri
+invocation, attach the RPM plus its sha256 to the nightly); after that
+AppImage, then the smoke tests and the remaining A33 items
+Last commit: 70b069b on main (slice3/depends-dedup fast-forward merged:
+the explicit deb.depends entries dropped; the rebuilt DEB's control now
+lists libwebkit2gtk-4.1-0 and libgtk-3-0 exactly once each)
+Latest CI result: SUCCESS — 36979031768 on main (70b069b) with the Nightly
+job rebuilding the DEB at 2026-10-02T07:35:50Z (3,968,668 bytes; that
 exact asset was re-downloaded and its sha256
-5f5c847e7acd1c65b8412810f55175c3582091019c851bb6ee99f8e0f3342fe5 matches
+10c8e9386a7ebffe72e24b293605fc022c7dc70a460ce4ade1d8aa3a736d1fff matches
 the digest published beside it in the release); 31 core tests (db, settings,
 jobs, logging, error) plus 2 nav tests. NOTE: every merge to main replaces
 the nightly asset, so a digest recorded here ages immediately — when
@@ -131,24 +132,23 @@ without root; method recorded in DECISIONS.md):
   only after it passes.
 
 Known issues:
-- The DEB's Depends still lists libwebkit2gtk-4.1-0 and libgtk-3-0 twice each
-  (explicit declaration plus bundler auto-detection). Harmless; cleanup stays
-  scheduled for the packaging slice.
+- The DEB Depends duplication (libwebkit2gtk-4.1-0 and libgtk-3-0 listed
+twice each) is RESOLVED by 70b069b: the rebuilt nightly DEB's control
+field now lists each package exactly once, provided by the bundler's
+own dependency detection.
 - proc-macro-error2 2.0.1 (transitive) prints a future-incompat note on
   clippy; informational only, tracked for the cargo-audit/deny step.
 
 Next 3 tasks:
-1. Deduplicate the DEB Depends: drop the explicit deb.depends entries
-   (libwebkit2gtk-4.1-0, libgtk-3-0) from tauri.conf.json so only the
-   bundler's auto-detected dependencies remain, then verify the rebuilt
-   DEB's control field lists each package once.
-2. RPM packaging: build the RPM in the same cargo-tauri invocation
+1. RPM packaging: build the RPM in the same cargo-tauri invocation
    (bundle targets deb,rpm), widen the artifact upload and attach the RPM
    (plus its sha256) to the nightly release.
-3. AppImage packaging: add the appimage bundle target, upload and attach
-   it to the nightly release; then the install/uninstall smoke tests, the
-   Ubuntu/Fedora/AppImage verifications, the v* release workflow and the
-   version consistency check (A33).
+2. AppImage packaging: add the appimage bundle target, upload and attach
+   it to the nightly release.
+3. Install/uninstall smoke tests and the A33 verifications: Ubuntu apt
+   verification, Fedora dnf container verification, AppImage xvfb
+   verification, the v* release workflow and the version consistency
+   check.
 
 Reference page inventory (extracted from kimpearce888/supportos App.tsx, S4
 will formalize): Dashboard /, Inbox /inbox, Notifications /notifications,
@@ -297,12 +297,20 @@ History of the previous slice (S2, closed 2026-10-02):
   (5f5c847e...fe5), and the slice closed.
 
 History of this slice (S3):
-- Slice 3 opened (this commit): PROGRESS records the S2 closure (launch
+- Slice 3 opened (492bf37): PROGRESS records the S2 closure (launch
   check passed, review passed) and the A33 scope: RPM, AppImage,
   install/uninstall smoke tests, Ubuntu apt verification, Fedora dnf
   container verification, AppImage xvfb verification, the v* release
   workflow, the version consistency check, and the scheduled DEB Depends
   deduplication. First concern: the Depends dedup, then the RPM target.
+- 70b069b (slice3/depends-dedup): dropped the explicit
+  tauri.conf.json linux.deb.depends entries; the bundler's own detection
+  keeps providing both runtime packages. Verified on the rebuilt nightly
+  (07:35:50Z, sha256 10c8e938...d1fff, digest-checked against the
+  release's .sha256 asset): dpkg-deb -f now reports
+  "Depends: libwebkit2gtk-4.1-0, libgtk-3-0" — each package exactly
+  once (the pre-dedup 05:56:27Z build listed both twice). CI
+  36979031768 green on main. This commit records that result.
 
 History of the previous slice (S1, for the record):
 - a614bf0, def3e75, c7b7b65, 434905e: scaffold, CI, autofix, docs (locally
