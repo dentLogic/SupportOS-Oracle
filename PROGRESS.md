@@ -1,34 +1,33 @@
 # PROGRESS
 
-IN PROGRESS: none (between tasks; the settings store landed; the next
-concern is the job queue, then the command-and-event wiring, then the UI
-shell).
+IN PROGRESS: none (between tasks; the job queue landed; the next concern is
+the shell wiring (database state + settings commands), then the UI shell).
 
 Current slice: S2 (Foundation)
-Current task: job queue next (queued/durable jobs over the database in
-crates/core with tests), then the command-and-event pattern through the thin
-shell, then theming and the UI shell
-Last commit: a18db56 on slice2/settings (the settings store plus the
-rustfmt pass; code commit 77c2174)
-Latest CI result: SUCCESS — run on a18db56 (CI#35) fully green; core
-tests now 23 (version, three error-type, four logging, seven db, eight
-settings).
+Current task: shell wiring next (the Tauri shell opens the database in its
+app data directory, manages it as state, reads the log level from settings,
+and exposes settings commands as one-line wrappers), then the UI shell
+Last commit: 06e3435 on slice2/jobs (the durable job queue; two fix commits
+for clippy needless borrows and one refit rustfmt line)
+Latest CI result: SUCCESS — CI#41 (06e3435) fully green; core tests now 31
+(version, three error-type, four logging, seven db, eight settings, eight
+jobs).
 
 What the green run proves (verified evidence, not claims):
-- The settings store works over the migrated database on the pinned
-  toolchain: set/get round-trip and replace (upsert), missing keys read as
-  None, remove is idempotent, list is ordered by key, and empty or
-  whitespace-only keys are rejected as invalid input.
-- The typed log-level boundary behaves as designed: valid names (any case)
-  round-trip through log.level; unknown names are rejected on write with
-  nothing stored; a tampered stored level is rejected on read with a settings
-  error (no silent fallback, A16).
-- No new dependencies entered the tree (the store uses rusqlite and core
-  modules only); the gates re-ran green on the same lockfile.
-- rustfmt drift on the first push (CI#34 failed at format check only):
-  nested Error::Variant(format!("...")) expressions above ~80 columns and
-  long closure arguments are the shapes rustfmt splits; recorded for future
-  hand-formatting, and the Autofix pass healed it as designed.
+- The durable job queue works on the pinned toolchain: enqueue stores a
+  queued job; claiming respects run-at times and (run_at, id) order and
+  marks the job running; completing requires the running state (completing
+  a queued or finished job is a job-queue error); a failed attempt requeues
+  with backoff while the attempt budget lasts and then fails terminally;
+  cancellation only touches queued jobs (running jobs answer false, unknown
+  ids are errors); lists are per state and ordered.
+- Failure visibility is durable: attempts are counted, the last error text
+  is stored, failed jobs stay in the table, and the database itself rejects
+  unknown states (the migration v2 CHECK constraint — tested).
+- The loop worked as designed: CI#39 caught the first real error
+  (clippy::needless_borrow in the tests, 26 occurrences — `conn` was already
+  a &mut Connection), fixed in 517ed80; CI#40 caught one refit rustfmt line
+  (a line that fit again after the fix), collapsed in 06e3435; CI#41 green.
 
 What the green run proves for the logging facade (run 36938147864 on 6392268):
 - The logging facade compiles and passes its tests on the pinned toolchain
@@ -60,14 +59,15 @@ Known issues:
   clippy; informational only, tracked for the cargo-audit/deny step.
 
 Next 3 tasks:
-1. Job queue on top of the database: enqueue/claim/complete/fail with tests
-   in crates/core, then the command-and-event pattern through the shell.
+1. Shell wiring: open the database at the app's data directory in the Tauri
+   setup, manage it as state, read the log level from settings (falling
+   back loudly), and add settings get/set commands as one-line wrappers.
 2. crates/ui shell: leptos_router 0.8, theming, navigation for all 20
    reference pages as honest "Not built yet" screens, 404, and the
    command-and-event pattern through the thin shell.
-3. Shell integration wiring: database state managed by the Tauri shell
-   (app data dir), the log level read from settings, and the first real
-   commands (settings get/set) as one-line wrappers.
+3. End-of-slice verification: confirm the exit criteria (CI green, nightly
+   installs and launches, every navigation item opens) and update the
+   docs before asking for the slice review.
 
 Reference page inventory (extracted from kimpearce888/supportos App.tsx, S4
 will formalize): Dashboard /, Inbox /inbox, Notifications /notifications,
@@ -134,6 +134,14 @@ History of this slice (S2):
   validating on write and read) with eight tests. Push-triggered CI#34
   failed at the format check only; run CI#35 on the branch tip went fully
   green with 23 core tests.
+- 5ac5d85 + b578b8c (autofix fmt) + 517ed80 + 06e3435: durable job queue on
+  slice2/jobs — migration v2 creates the jobs table with a state CHECK
+  constraint; core gains `jobs` (enqueue, claim_next in a transaction,
+  complete with state validation, fail_attempt with a RetryPolicy,
+  queued-only cancel, per-state lists) with eight tests. CI#39 caught
+  clippy::needless_borrow (26 test call sites), fixed in 517ed80; CI#40
+  caught one refit line, collapsed in 06e3435; CI#41 fully green with 31
+  core tests.
 
 History of the previous slice (S1, for the record):
 - a614bf0, def3e75, c7b7b65, 434905e: scaffold, CI, autofix, docs (locally

@@ -6,6 +6,29 @@ otherwise.
 
 ## Slice 2
 
+- **The durable job queue** (slice2/jobs, branch tip 06e3435 after CI#41
+  went green): migration v2 creates `jobs` with a CHECK constraint keeping
+  the state set closed at the database level (queued, running, succeeded,
+  failed, cancelled — tested by inserting an unknown state directly).
+  `core::jobs` exposes enqueue, `claim_next` (a transaction: select the
+  oldest job whose run-at time has passed, ordered by run_at then id, and
+  mark it running), `complete` (requires running; finishing a non-running or
+  unknown job is a job-queue error, never a silent no-op), `fail_attempt`
+  (attempts counted, last error stored, requeue with a fixed backoff while
+  the RetryPolicy budget lasts, then terminal failure), `cancel` (queued
+  jobs only; running jobs answer false — the operation is in flight — and
+  unknown ids are errors), and per-state listing. All time inputs are caller
+  parameters: the queue never reads a clock, so tests and workers stay
+  deterministic. Rows are never deleted, preserving failure visibility.
+  Reason: SPEC 10 demands explicit states, retries, failure visibility and
+  cancellation where supported; the caller-supplied time keeps the queue
+  testable without a clock mock (A5). Trade-off: no worker loop or executor
+  yet — the queue is the durable substrate, and the first real executors
+  (sync, indexing) arrive with their slices. The build loop caught two
+  real issues: clippy::needless_borrow across the tests (CI#39, fixed in
+  517ed80) and one line that fit again after that fix (CI#40, collapsed in
+  06e3435).
+
 - **The settings store** (slice2/settings, branch tip a18db56 after CI#35
   went green): `core::settings` exposes generic `get`/`set` (SQLite upsert so
   a write replaces), `remove` (idempotent) and `list` (ordered by key) over
