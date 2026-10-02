@@ -253,6 +253,45 @@ otherwise.
   file move because crates/core carries the moved version helper, but it is
   one coherent concern: the new shape itself.
 
+- **The database state is core's `SharedDb`, not a shell struct**:
+  `crates/core/src/db.rs` exposes a `Mutex<Connection>` handle whose `with()`
+  runs one operation at a time, and the Tauri shell only manages it as
+  state. Reason: the lock discipline and poison handling are logic, and A5
+  keeps every piece of logic in core where it has a test (the poison path is
+  exercised with catch_unwind). Trade-off: core carries a
+  concurrency-aware type, though it is persistence infrastructure by nature;
+  commands stay one-line wrappers with no unwraps.
+
+- **A launch without the database fails the launch**: the shell's setup hook
+  resolves `app.path().app_data_dir()` (verified in tauri 2.12.1's
+  `path/desktop.rs`: `dirs::data_dir()/{identifier}`, so
+  `~/.local/share/com.dentlogic.supportos-oracle/supportos-oracle.db` on
+  Linux), creates the directory, opens the DB with WAL and migrations, and
+  any failure aborts startup with the error. Reason: A16 (no silent
+  failure) — an app that lost its local state has nothing honest to show.
+  Trade-off: a broken data directory takes the whole window down; the error
+  message names the failing step.
+
+- **The theme preference applies through a `data-theme` attribute on the
+  document root** rather than a JS-injected class or a stylesheet swap:
+  `html[data-theme="light"|"dark"]` re-declares the token sets next to the
+  existing `:root` and media-query blocks, and attribute specificity beats
+  `:root` in both, so a pinned palette wins over the system preference and
+  "system" (attribute removed) falls back to the media query. Reason: no
+  duplicated stylesheets, no hand-written JS (Rust sets the attribute
+  through web-sys), and the CSS stays declarative. Trade-off: the token
+  lists appear twice each (default light, media dark, plus the two pinned
+  selectors) — plain CSS custom properties without `light-dark()`, which
+  WebKitGTK cannot be assumed to support.
+
+- **The persisted log.level is stored and validated but not yet applied at
+  startup**: tauri-plugin-log's builder runs before the setup hook, so
+  reading the level would require opening the database before the app
+  exists and duplicating Tauri's path resolution. Reason: least code that
+  works; the level has a validated boundary and an honest default (Info).
+  Trade-off: editing log.level in a future Settings page takes effect on
+  the next launch; the application lands with the Settings screen slice.
+
 ## Slice 1
 
 - **Template**: the official create-tauri-app Leptos template
