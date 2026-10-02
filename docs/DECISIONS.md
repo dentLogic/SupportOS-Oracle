@@ -6,6 +6,30 @@ otherwise.
 
 ## Slice 2
 
+- **The S2 exit evidence includes an agent-side smoke launch of the nightly
+  DEB, done rootless in the sandbox, and it is recorded as supporting
+  evidence only — never as the "installs and launches" exit criterion**
+  (slice2/s2-exit-evidence, 2026-10-02): the DEB is downloaded through the
+  release API and its sha256 checked; the payload is inspected (binary,
+  .desktop, icons); the WebKitGTK runtime closure is obtained with
+  `apt-get download` + `dpkg-deb -x` (no root, no system mutation); a small
+  LD_PRELOAD shim rewrites execve/posix_spawn/dlopen paths from
+  /usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/ (compile-time fixed in
+  WebKitGTK; no env override exists in 2.52) to the extracted tree, and the
+  binary runs under Xvfb. That launch proved: the 800x600 window titled
+  "SupportOS Oracle" with WM_CLASS supportos-oracle, the fail-loud setup
+  hook completing (app data dir, DB with journal_mode wal, migrations v1
+  and v2 applied, the startup record in the LogDir sink and stdout), and a
+  stable 20+ second run. Reason: AGENTS.md says "GitHub Actions is the
+  compiler", but a launch-path proof is stronger than a build proof, and
+  the sandbox cannot run root installs. Trade-offs: the shim and the
+  extracted webkit tree are sandbox artifacts, deliberately NOT committed
+  to the repo; the GPU-less container aborts WebKitGPUProcess (EGL has no
+  display), so no webview content pixels appear — on-screen rendering
+  stays unproven and belongs to the owner's launch check, exactly as the
+  exit criteria require. The owner's check remains the criterion that
+  closes S2.
+
 - **Theming follows the system color-scheme preference** (slice2/theming,
   branch tip 0a88f8c after CI#48 went green): styles.css defines every
   color as a custom property token; :root holds the light palette plus

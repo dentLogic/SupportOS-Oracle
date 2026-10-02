@@ -1,18 +1,20 @@
 # PROGRESS
 
-IN PROGRESS: none (between tasks; the settings-wired commands landed; the
-next concern is the end-of-slice verification).
+IN PROGRESS: the S2 exit evidence is gathered (CI green, nightly assets
+verified, agent-side smoke launch recorded below); the owner's launch
+check of the nightly DEB is the one criterion still open.
 
 Current slice: S2 (Foundation)
-Current task: end-of-slice verification — confirm the exit criteria (CI
-green; the nightly application installs and launches; every navigation
-item opens) and update the docs before asking for the slice review
-Last commit: 83a8c19 + ad017ec (autofix lockfile) on slice2/shell-settings
-(the persisted theme toggle plus the regenerated lockfile)
-Latest CI result: SUCCESS — 36951821709 (ad017ec, the branch tip with the
-regenerated lockfile) and the push-triggered 36951795383 (83a8c19) both
-fully green; 31 core tests (db, settings, jobs, logging, error) plus 2 nav
-tests.
+Current task: owner launch check — install the nightly DEB, confirm every
+navigation item opens and the theme preference persists across a restart;
+then the S2 slice review
+Last commit: 7f02c28 on main (slice2/shell-settings fast-forward merged:
+the settings-wired commands, the persisted theme toggle, the docs)
+Latest CI result: SUCCESS — 36952644692 on main (7f02c28) with the Nightly
+job rebuilding the DEB at 2026-10-02T01:52:10Z (3,968,672 bytes, sha256
+02734354bf8a3a4cf54c213b142bf041d78a2cf018e8691cbeb7b22da8ab7cd3 verified
+against the downloaded asset); 31 core tests (db, settings, jobs, logging,
+error) plus 2 nav tests.
 
 What the green run proves (verified evidence, not claims):
 - The Leptos router shell builds for wasm32 through trunk: leptos_router
@@ -75,6 +77,36 @@ What the green run proves for the settings wiring (runs 36951341830 on
   reloads the preference and the palette follows it. That evidence is the
   owner's launch check of the nightly DEB (the slice exit criterion).
 
+End-of-slice verification — agent-side evidence (2026-10-02, sandbox
+without root; method recorded in DECISIONS.md):
+- Asset integrity: the nightly DEB downloaded through the release API and
+  its sha256 matches the published digest (the full hex is in the header
+  above). dpkg-deb -I shows the expected control fields; the payload carries
+  usr/bin/supportos-oracle, the .desktop entry (Name/Exec/Icon,
+  StartupWMClass supportos-oracle) and hicolor icons — the structure an
+  application-menu launch needs.
+- Smoke launch: with the WebKitGTK runtime obtained through `apt-get
+  download` (no root) and an LD_PRELOAD path shim, the extracted binary
+  launches under Xvfb and stays alive 20+ seconds. The window tree (xwininfo)
+  shows "SupportOS Oracle" at exactly 800x600+0+0 with the matching
+  WM_CLASS — the configured window, not a crash dialog.
+- The fail-loud setup hook completed in that launch: the app data directory
+  was created, supportos-oracle.db appeared with journal_mode wal (live -wal
+  and -shm files), BOTH migrations applied on a fresh profile (the
+  schema_migrations rows show v1 settings_key_value and v2 jobs_queue; the
+  settings and jobs tables exist), and the tauri-plugin-log LogDir sink
+  wrote the startup record — "SupportOS Oracle starting (version 0.1.0)" —
+  to both stdout and logs/SupportOS-Oracle.log. The WebKit webview
+  initialized (WebKitCache, storage and hsts files created).
+- What the sandbox cannot prove: on-screen rendering of the Leptos UI. The
+  webview painted no content pixels in this container — the WebKitGPUProcess
+  aborts when EGL finds no usable display (no GPU, no dbus in the sandbox;
+  software-rendering env vars did not change this). This is an environment
+  limitation recorded as such, not evidence of an app defect: CI proves the
+  frontend builds into the DEB, and the launch above proves the app side of
+  the stack runs. The on-screen criterion stays with the owner's launch
+  check.
+
 Known issues:
 - The DEB's Depends still lists libwebkit2gtk-4.1-0 and libgtk-3-0 twice each
   (explicit declaration plus bundler auto-detection). Harmless; cleanup stays
@@ -83,13 +115,12 @@ Known issues:
   clippy; informational only, tracked for the cargo-audit/deny step.
 
 Next 3 tasks:
-1. Merge slice2/shell-settings to main (CI and the nightly rebuild run
-   there), then verify the nightly release assets.
-2. End-of-slice verification: confirm the exit criteria (CI green, nightly
-   installs and launches, every navigation item opens) and update the docs
-   before asking for the slice review.
+1. Owner launch check: install the nightly DEB (sha256 in the header),
+   launch from the application menu, confirm every navigation item opens
+   and the theme preference survives a restart.
+2. Record the launch-check result, then request the S2 slice review.
 3. Slice 3 (packaging) once the S2 review passes: RPM and AppImage
-   packaging per A33.
+   packaging per A33, including the Depends deduplication.
 
 Reference page inventory (extracted from kimpearce888/supportos App.tsx, S4
 will formalize): Dashboard /, Inbox /inbox, Notifications /notifications,
@@ -202,6 +233,17 @@ History of this slice (S2):
   the light/dark token sets on html[data-theme]. Both the push-triggered
   run 36951795383 and the tip run 36951821709 went green (31 core tests,
   2 nav tests, web-sys/js-sys edges recorded in the regenerated lockfile).
+- 7f02c28: the settings-wiring docs (PROGRESS/DECISIONS updates),
+  fast-forward merged slice2/shell-settings to main; main run 36952644692
+  green with the Nightly job rebuilding the DEB (3,968,672 bytes) at
+  01:52:10Z.
+- The S2 exit-evidence pass (this commit): nightly assets verified by
+  sha256, package structure inspected, and an agent-side smoke launch under
+  Xvfb proved the launch path end-to-end (window 800x600 with the right
+  WM_CLASS, DB with WAL and both migrations on a fresh profile, the startup
+  log record in place). The webview painted no content pixels in the
+  GPU-less sandbox — recorded as an environment limit; the on-screen
+  criterion remains the owner's launch check.
 
 History of the previous slice (S1, for the record):
 - a614bf0, def3e75, c7b7b65, 434905e: scaffold, CI, autofix, docs (locally
