@@ -25,14 +25,32 @@ pub struct Migration {
 }
 
 /// The ordered migrations applied by [`open`].
-pub const MIGRATIONS: &[Migration] = &[Migration {
-    version: 1,
-    name: "settings_key_value",
-    sql: "CREATE TABLE settings (
-        key TEXT PRIMARY KEY,
-        value TEXT NOT NULL
-    )",
-}];
+pub const MIGRATIONS: &[Migration] = &[
+    Migration {
+        version: 1,
+        name: "settings_key_value",
+        sql: "CREATE TABLE settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        )",
+    },
+    Migration {
+        version: 2,
+        name: "jobs_queue",
+        sql: "CREATE TABLE jobs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            kind TEXT NOT NULL,
+            payload TEXT NOT NULL,
+            state TEXT NOT NULL
+                CHECK (state IN ('queued', 'running', 'succeeded', 'failed', 'cancelled')),
+            attempts INTEGER NOT NULL,
+            run_at INTEGER NOT NULL,
+            last_error TEXT,
+            created_at INTEGER NOT NULL,
+            updated_at INTEGER NOT NULL
+        )",
+    },
+];
 
 /// Opens the application database at `path` with WAL, foreign keys and all
 /// migrations applied.
