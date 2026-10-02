@@ -99,13 +99,20 @@ without root; method recorded in DECISIONS.md):
   to both stdout and logs/SupportOS-Oracle.log. The WebKit webview
   initialized (WebKitCache, storage and hsts files created).
 - What the sandbox cannot prove: on-screen rendering of the Leptos UI. The
-  webview painted no content pixels in this container — the WebKitGPUProcess
-  aborts when EGL finds no usable display (no GPU, no dbus in the sandbox;
-  software-rendering env vars did not change this). This is an environment
-  limitation recorded as such, not evidence of an app defect: CI proves the
-  frontend builds into the DEB, and the launch above proves the app side of
-  the stack runs. The on-screen criterion stays with the owner's launch
-  check.
+  webview painted no content pixels in this container, and a negative
+  control proved this is environmental, not an app defect: WebKitGTK's own
+  MiniBrowser loading a trivial local page (plain HTML + a script that
+  fills the page and instantiates a minimal wasm module) ALSO paints
+  nothing and reports "WebProcess CRASHED" under the same Xvfb — the
+  GPU-less container aborts the WebKit EGL/GPU path for every WebKit
+  process (software-rendering env vars, a software mesa EGL vendor, and
+  DMABUF/compositing-mode disable all tried; no EGL display is creatable
+  without a DRI2 X server or a /dev/dri device). During the app smoke run
+  the WebKitWebProcess and WebKitNetworkProcess do spawn (sampled
+  continuously for 15s), so the webview pipeline itself starts; only
+  painting is impossible here. CI proves the frontend builds into the DEB,
+  and the launch above proves the app side of the stack runs. The
+  on-screen criterion stays with the owner's launch check.
 
 Known issues:
 - The DEB's Depends still lists libwebkit2gtk-4.1-0 and libgtk-3-0 twice each
@@ -241,9 +248,11 @@ History of this slice (S2):
   sha256, package structure inspected, and an agent-side smoke launch under
   Xvfb proved the launch path end-to-end (window 800x600 with the right
   WM_CLASS, DB with WAL and both migrations on a fresh profile, the startup
-  log record in place). The webview painted no content pixels in the
-  GPU-less sandbox — recorded as an environment limit; the on-screen
-  criterion remains the owner's launch check.
+  log record in place, the WebKitWebProcess and WebKitNetworkProcess
+  alive). The webview painted no content pixels in the GPU-less sandbox —
+  and a negative control (WebKit's own MiniBrowser with a trivial JS page
+  failing identically) proved that is a container limitation, not an app
+  defect; the on-screen criterion remains the owner's launch check.
 
 History of the previous slice (S1, for the record):
 - a614bf0, def3e75, c7b7b65, 434905e: scaffold, CI, autofix, docs (locally

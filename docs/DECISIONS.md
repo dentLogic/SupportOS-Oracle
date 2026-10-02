@@ -25,7 +25,11 @@ otherwise.
   the sandbox cannot run root installs. Trade-offs: the shim and the
   extracted webkit tree are sandbox artifacts, deliberately NOT committed
   to the repo; the GPU-less container aborts WebKitGPUProcess (EGL has no
-  display), so no webview content pixels appear — on-screen rendering
+  display), so no webview content pixels appear — and a negative control
+  proved this is environmental rather than an app defect: WebKitGTK's own
+  MiniBrowser loading a trivial local HTML+JS+wasm page paints nothing and
+  reports "WebProcess CRASHED" under the same Xvfb, so on-screen rendering
+  is impossible for ANY WebKit app in this container. On-screen rendering
   stays unproven and belongs to the owner's launch check, exactly as the
   exit criteria require. The owner's check remains the criterion that
   closes S2.
