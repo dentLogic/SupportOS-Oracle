@@ -31,7 +31,7 @@ fn settings_set(db: tauri::State<SharedDb>, key: String, value: String) -> Resul
 /// The persisted theme name, or "system" when no preference is stored.
 #[tauri::command]
 fn settings_theme(db: tauri::State<SharedDb>) -> Result<String, String> {
-    db.with(|conn| settings::theme(conn))
+    db.with(settings::theme)
         .map(|stored| stored.unwrap_or_else(|| "system".to_string()))
         .map_err(|e| e.to_string())
 }
