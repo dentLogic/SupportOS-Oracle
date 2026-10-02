@@ -1,29 +1,27 @@
 # PROGRESS
 
-IN PROGRESS: the S2 slice review — the owner's launch check of the
-nightly DEB PASSED (2026-10-02, reported directly to the agent): the
-installed application launches from the application menu, every
-navigation item opens, and the theme preference persists across a
-restart. That was the last open exit criterion; every A32 exit
-criterion now has recorded evidence, and the slice awaits the owner's
-review before Slice 3 starts.
+IN PROGRESS: Slice 3 (packaging). S2 is CLOSED — the slice review
+PASSED on 2026-10-02 (owner, reported directly to the agent) after the
+launch check passed and every A32 exit criterion held with evidence.
+Slice 3 now adds the A33 packaging work: RPM, AppImage, smoke tests,
+the verifications, the v* release workflow and the version consistency
+check, plus the scheduled Depends deduplication.
 
-Current slice: S2 (Foundation)
-Current task: the S2 slice review (requested with this commit; on
-approval, S2 closes and Slice 3 opens)
-Last commit: 8507686 on main (slice2/s2-digest-pointer fast-forward
-merged: the nightly-digest handoff fix; this pass is docs-only on top)
-Latest CI result: SUCCESS — 36970886526 on main (8507686) with the Nightly
-job rebuilding the DEB at 2026-10-02T05:56:27Z (3,968,668 bytes; that
+Current slice: S3 (Packaging)
+Current task: first S3 concern — deduplicate the DEB Depends (remove the
+explicit deb.depends entries that duplicate the bundler's own detection);
+then RPM, then AppImage, then the smoke tests and the remaining A33 items
+Last commit: 09a8b47 on main (slice2/s2-launch-check fast-forward merged:
+the launch-check record and the slice-review request)
+Latest CI result: SUCCESS — 36972800354 on main (09a8b47) with the Nightly
+job rebuilding the DEB at 2026-10-02T06:21:11Z (3,968,670 bytes; that
 exact asset was re-downloaded and its sha256
-1b77b1dff465f76d8ac0c384505c9272b6be7cfb3ab14d7feb113596dd5c6f0f matches
-the digest published beside it in the release, and it smoke-launched on a
-clean profile with the same evidence as the section below); 31 core tests
-(db, settings, jobs, logging, error) plus 2 nav tests. NOTE: every merge to
-main replaces the nightly asset, so a digest recorded here ages
-immediately — when installing, verify the download against the .sha256
-asset published next to the DEB in the Nightly release, which always
-matches the current bytes.
+5f5c847e7acd1c65b8412810f55175c3582091019c851bb6ee99f8e0f3342fe5 matches
+the digest published beside it in the release); 31 core tests (db, settings,
+jobs, logging, error) plus 2 nav tests. NOTE: every merge to main replaces
+the nightly asset, so a digest recorded here ages immediately — when
+installing, verify the download against the .sha256 asset published next
+to the DEB in the Nightly release, which always matches the current bytes.
 
 What the green run proves (verified evidence, not claims):
 - The Leptos router shell builds for wasm32 through trunk: leptos_router
@@ -140,17 +138,17 @@ Known issues:
   clippy; informational only, tracked for the cargo-audit/deny step.
 
 Next 3 tasks:
-1. S2 slice review (owner): the slice's deliverables, evidence, known
-   issues (Depends deduplication deferred to Slice 3 by design; the
-   proc-macro-error2 informational note) and zero deviations await
-   review — no DEVIATIONS.md entries are pending approval for this
-   slice.
-2. Record the review outcome: on approval, close S2 and open Slice 3;
-   on findings, land them first.
-3. Slice 3 (packaging) per A33: RPM and AppImage packaging, the
-   install/uninstall smoke tests, the Ubuntu/Fedora/AppImage
-   verifications, the v* release workflow, the version consistency
-   check, and the Depends deduplication.
+1. Deduplicate the DEB Depends: drop the explicit deb.depends entries
+   (libwebkit2gtk-4.1-0, libgtk-3-0) from tauri.conf.json so only the
+   bundler's auto-detected dependencies remain, then verify the rebuilt
+   DEB's control field lists each package once.
+2. RPM packaging: build the RPM in the same cargo-tauri invocation
+   (bundle targets deb,rpm), widen the artifact upload and attach the RPM
+   (plus its sha256) to the nightly release.
+3. AppImage packaging: add the appimage bundle target, upload and attach
+   it to the nightly release; then the install/uninstall smoke tests, the
+   Ubuntu/Fedora/AppImage verifications, the v* release workflow and the
+   version consistency check (A33).
 
 Reference page inventory (extracted from kimpearce888/supportos App.tsx, S4
 will formalize): Dashboard /, Inbox /inbox, Notifications /notifications,
@@ -171,7 +169,7 @@ shell itself is built, themed and wired to the settings store (light/dark
 follows the system color-scheme preference until a persisted choice
 takes over, saved through the theme toggle).
 
-History of this slice (S2):
+History of the previous slice (S2, closed 2026-10-02):
 - 2e34dc4 + dade1e6 + 449c1ec (autofix lockfile): workspace restructure on
   slice2/workspace-restructure, CI run 36878092716 green, fast-forward merged
   to main (449c1ec). The push-triggered run on dade1e6 revealed the pipe
@@ -288,16 +286,23 @@ History of this slice (S2):
   mismatch; the owner instruction now points at the .sha256 asset in the
   release, which always matches the current DEB (decision recorded in
   DECISIONS).
-- The owner's launch-check result (this commit): PASSED, reported
-  directly to the agent on 2026-10-02 — installed from the nightly DEB,
-  launched from the application menu, every navigation item opens, and
-  the theme preference persists across a restart. All three A32 exit
-  criteria are now met with recorded evidence (CI green on main; the
-  installed nightly launches; every navigation item opens), so the S2
-  slice review is requested. No deviations are pending approval for this
-  slice; the known issues are the Depends deduplication (deferred to
-  Slice 3 by design, per A33) and the proc-macro-error2 informational
-  note. Slice 3 starts only after the review passes.
+- The owner's launch-check result (09a8b47): PASSED, reported directly
+  to the agent on 2026-10-02 — installed from the nightly DEB, launched
+  from the application menu, every navigation item opens, and the theme
+  preference persists across a restart. All three A32 exit criteria were
+  then met with recorded evidence (CI green on main; the installed nightly
+  launches; every navigation item opens). The S2 slice review PASSED on
+  2026-10-02 (owner, reported directly to the agent); no deviations were
+  pending approval, the nightly at 09a8b47 was verified
+  (5f5c847e...fe5), and the slice closed.
+
+History of this slice (S3):
+- Slice 3 opened (this commit): PROGRESS records the S2 closure (launch
+  check passed, review passed) and the A33 scope: RPM, AppImage,
+  install/uninstall smoke tests, Ubuntu apt verification, Fedora dnf
+  container verification, AppImage xvfb verification, the v* release
+  workflow, the version consistency check, and the scheduled DEB Depends
+  deduplication. First concern: the Depends dedup, then the RPM target.
 
 History of the previous slice (S1, for the record):
 - a614bf0, def3e75, c7b7b65, 434905e: scaffold, CI, autofix, docs (locally
