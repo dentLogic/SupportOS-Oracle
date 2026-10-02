@@ -60,8 +60,9 @@ Known issues:
   clippy; informational only, tracked for the cargo-audit/deny step.
 
 Next 3 tasks:
-1. Theming: CSS custom properties with light/dark palettes in the shell,
-   following the system color-scheme preference (no fake controls).
+1. Settings-wired commands: the shell opens the database in the app data
+   directory, manages it as state, and exposes settings get/set commands
+   (one-line wrappers); the theme toggle persists through them.
 2. Settings-wired commands: the shell opens the database in the app data
    directory, manages it as state, and exposes settings get/set commands
    (one-line wrappers); the theme toggle persists through them.
@@ -84,7 +85,9 @@ for all 20 reference pages, honest "Not built yet" pages on every route,
 the 404 fallback, and the app version displayed through the working
 `app_version` command (a one-line wrapper over core::app::version()).
 Pages remaining: all reference pages' real screens (later slices); the
-shell itself is built — theming arrives next.
+shell itself is built and themed (light/dark follows the system
+color-scheme preference; a persisted preference arrives with the
+settings-wired commands).
 
 History of this slice (S2):
 - 2e34dc4 + dade1e6 + 449c1ec (autofix lockfile): workspace restructure on
@@ -150,6 +153,11 @@ History of this slice (S2):
   (Router, sidebar, routed content, version footer). CI#44 green on the
   first push (no fmt drift), CI#45 green on the branch tip with the
   regenerated lockfile.
+- 0a88f8c: theming on slice2/theming — styles.css switches to theme tokens
+  (custom properties) with light and dark palettes, the color-scheme
+  property on :root makes native widgets follow the theme, and index.html
+  declares the supported schemes to the webview before the CSS loads. No
+  Rust change; CI#48 green on the first push.
 
 History of the previous slice (S1, for the record):
 - a614bf0, def3e75, c7b7b65, 434905e: scaffold, CI, autofix, docs (locally

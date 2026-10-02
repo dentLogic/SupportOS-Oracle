@@ -6,6 +6,19 @@ otherwise.
 
 ## Slice 2
 
+- **Theming follows the system color-scheme preference** (slice2/theming,
+  branch tip 0a88f8c after CI#48 went green): styles.css defines every
+  color as a custom property token; :root holds the light palette plus
+  color-scheme: light, and a prefers-color-scheme: dark media query swaps
+  the tokens for the dark palette (color-scheme: dark), so native widgets
+  and scrollbars follow the theme too. index.html declares
+  <meta name="color-scheme" content="light dark"> so the webview picks the
+  right scheme before the CSS loads. Reason: SPEC 13 requires theme
+  support; following the system preference is real, honest support without
+  any control (A15 forbids dead or fake controls). Trade-off: no in-app
+  preference yet — the persisted theme choice and its toggle arrive with
+  the settings-wired commands, which is the deliberate next commit.
+
 - **The navigation shell** (slice2/ui-shell, branch tip e3fbbf1 after CI#44
   and CI#45 went green): the UI crate gains leptos_router 0.8 (plain
   dependency — the crate needs no feature flags for client-side routing;
