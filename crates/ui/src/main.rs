@@ -1,6 +1,7 @@
 mod app;
 mod nav;
 mod pages;
+mod theme;
 
 use app::*;
 use leptos::prelude::*;

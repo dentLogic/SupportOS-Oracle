@@ -8,6 +8,7 @@ use wasm_bindgen::prelude::*;
 
 use crate::nav::NAV_ITEMS;
 use crate::pages::{NotBuiltYet, NotFound};
+use crate::theme;
 
 #[wasm_bindgen]
 extern "C" {
@@ -32,6 +33,67 @@ pub fn App() -> impl IntoView {
         });
     });
 
+    // The persisted theme arrives through the settings command; the toggle
+    // shows a value only once the store holds it, and a rejected save leaves
+    // both the label and the page on the previous theme (no fake success).
+    let (current_theme, set_current_theme) = signal("system".to_string());
+    let (theme_save_in_flight, set_theme_save_in_flight) = signal(false);
+    let (theme_error, set_theme_error) = signal(None::<String>);
+
+    Effect::new(move |_| {
+        spawn_local(async move {
+            match invoke("settings_theme", JsValue::UNDEFINED).await {
+                Ok(value) => match value.as_string() {
+                    Some(stored) => {
+                        set_current_theme.set(stored.clone());
+                        if let Err(message) = theme::apply(&stored) {
+                            set_theme_error.set(Some(message));
+                        }
+                    }
+                    None => set_theme_error.set(Some(
+                        "the theme command answered with a non-string value".to_string(),
+                    )),
+                },
+                Err(error) => set_theme_error.set(Some(theme::error_message(
+                    "could not read the theme",
+                    &error,
+                ))),
+            }
+        });
+    });
+
+    let toggle_theme = move |_| {
+        if theme_save_in_flight.get_untracked() {
+            return;
+        }
+        let target = theme::next(&current_theme.get_untracked()).to_string();
+        set_theme_save_in_flight.set(true);
+        spawn_local(async move {
+            let args = match theme::command_args(&target) {
+                Ok(args) => args,
+                Err(message) => {
+                    set_theme_error.set(Some(message));
+                    set_theme_save_in_flight.set(false);
+                    return;
+                }
+            };
+            match invoke("settings_set_theme", args).await {
+                Ok(_) => {
+                    set_current_theme.set(target.clone());
+                    set_theme_error.set(None);
+                    if let Err(message) = theme::apply(&target) {
+                        set_theme_error.set(Some(message));
+                    }
+                }
+                Err(error) => set_theme_error.set(Some(theme::error_message(
+                    "could not save the theme",
+                    &error,
+                ))),
+            }
+            set_theme_save_in_flight.set(false);
+        });
+    };
+
     view! {
         <Router>
             <div class="shell">
@@ -54,6 +116,21 @@ pub fn App() -> impl IntoView {
                             })
                             .collect::<Vec<_>>()}
                     </ul>
+                    <div class="theme-controls">
+                        <button
+                            class="theme-toggle"
+                            title="Cycle the theme: system, light, dark"
+                            disabled=move || theme_save_in_flight.get()
+                            on:click=toggle_theme
+                        >
+                            "Theme: " {move || current_theme.get()}
+                        </button>
+                        {move || {
+                            theme_error.get().map(|message| {
+                                view! { <p class="theme-error">{message}</p> }
+                            })
+                        }}
+                    </div>
                     <footer class="version">
                         "App version: " {move || version.get()}
                     </footer>
