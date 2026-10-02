@@ -139,9 +139,7 @@ pub fn theme(conn: &Connection) -> Result<Option<String>> {
 /// Stores the theme name after validating it is one of [`THEME_NAMES`].
 pub fn set_theme(conn: &Connection, name: &str) -> Result<()> {
     if !THEME_NAMES.contains(&name) {
-        return Err(Error::InvalidInput(format!(
-            "{name} is not a theme name"
-        )));
+        return Err(Error::InvalidInput(format!("{name} is not a theme name")));
     }
     set(conn, THEME_KEY, name)
 }
