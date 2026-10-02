@@ -560,8 +560,7 @@ mod tests {
         assert_eq!(queued.len(), 1);
         assert_eq!(queued[0].payload, "two");
 
-        let running =
-            list_by_state(conn, JobState::Running).expect("the running list should work");
+        let running = list_by_state(conn, JobState::Running).expect("the running list should work");
         assert_eq!(running.len(), 1);
         assert_eq!(running[0].payload, "one");
 
