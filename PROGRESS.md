@@ -1,20 +1,22 @@
 # PROGRESS
 
-IN PROGRESS: the S2 exit evidence is gathered (CI green, nightly assets
-verified, agent-side smoke launch recorded below); the owner's launch
-check of the nightly DEB is the one criterion still open.
+IN PROGRESS: the S2 slice review — the owner's launch check of the
+nightly DEB PASSED (2026-10-02, reported directly to the agent): the
+installed application launches from the application menu, every
+navigation item opens, and the theme preference persists across a
+restart. That was the last open exit criterion; every A32 exit
+criterion now has recorded evidence, and the slice awaits the owner's
+review before Slice 3 starts.
 
 Current slice: S2 (Foundation)
-Current task: owner launch check — install the nightly DEB, confirm every
-navigation item opens and the theme preference persists across a restart;
-then the S2 slice review
-Last commit: e327d70 on main (slice2/s2-render-negative-control
-fast-forward merged: the render-failure negative-control docs; this pass
-is docs-only on top)
-Latest CI result: SUCCESS — 36963732050 on main (e327d70) with the Nightly
-job rebuilding the DEB at 2026-10-02T04:18:59Z (3,968,664 bytes; that exact
-asset was re-downloaded and its sha256
-d9dda2f9726dec50d309cc2ef6d309dc24fffaed453beb4b5c6dfd2dcc739d38 matches
+Current task: the S2 slice review (requested with this commit; on
+approval, S2 closes and Slice 3 opens)
+Last commit: 8507686 on main (slice2/s2-digest-pointer fast-forward
+merged: the nightly-digest handoff fix; this pass is docs-only on top)
+Latest CI result: SUCCESS — 36970886526 on main (8507686) with the Nightly
+job rebuilding the DEB at 2026-10-02T05:56:27Z (3,968,668 bytes; that
+exact asset was re-downloaded and its sha256
+1b77b1dff465f76d8ac0c384505c9272b6be7cfb3ab14d7feb113596dd5c6f0f matches
 the digest published beside it in the release, and it smoke-launched on a
 clean profile with the same evidence as the section below); 31 core tests
 (db, settings, jobs, logging, error) plus 2 nav tests. NOTE: every merge to
@@ -120,6 +122,15 @@ without root; method recorded in DECISIONS.md):
   painting is impossible here. CI proves the frontend builds into the DEB,
   and the launch above proves the app side of the stack runs. The
   on-screen criterion stays with the owner's launch check.
+- The owner's launch check (2026-10-02): PASSED, reported directly to the
+  agent. The owner installed the nightly DEB on real hardware, launched
+  SupportOS Oracle from the application menu, and confirmed: the
+  application launches, every navigation item opens, and the theme
+  preference persists across a restart. This is the on-screen evidence
+  the sandbox could not produce, and it closes the last open A32 exit
+  criterion (CI green; installed nightly launches; every navigation
+  item opens). The S2 slice review is requested next — Slice 3 starts
+  only after it passes.
 
 Known issues:
 - The DEB's Depends still lists libwebkit2gtk-4.1-0 and libgtk-3-0 twice each
@@ -129,14 +140,17 @@ Known issues:
   clippy; informational only, tracked for the cargo-audit/deny step.
 
 Next 3 tasks:
-1. Owner launch check: install the nightly DEB (verify it against the
-   .sha256 asset published next to it in the Nightly release — not a digest
-   in this file, which ages out at every rebuild), launch from the
-   application menu, confirm every navigation item opens and the theme
-   preference survives a restart.
-2. Record the launch-check result, then request the S2 slice review.
-3. Slice 3 (packaging) once the S2 review passes: RPM and AppImage
-   packaging per A33, including the Depends deduplication.
+1. S2 slice review (owner): the slice's deliverables, evidence, known
+   issues (Depends deduplication deferred to Slice 3 by design; the
+   proc-macro-error2 informational note) and zero deviations await
+   review — no DEVIATIONS.md entries are pending approval for this
+   slice.
+2. Record the review outcome: on approval, close S2 and open Slice 3;
+   on findings, land them first.
+3. Slice 3 (packaging) per A33: RPM and AppImage packaging, the
+   install/uninstall smoke tests, the Ubuntu/Fedora/AppImage
+   verifications, the v* release workflow, the version consistency
+   check, and the Depends deduplication.
 
 Reference page inventory (extracted from kimpearce888/supportos App.tsx, S4
 will formalize): Dashboard /, Inbox /inbox, Notifications /notifications,
@@ -274,6 +288,16 @@ History of this slice (S2):
   mismatch; the owner instruction now points at the .sha256 asset in the
   release, which always matches the current DEB (decision recorded in
   DECISIONS).
+- The owner's launch-check result (this commit): PASSED, reported
+  directly to the agent on 2026-10-02 — installed from the nightly DEB,
+  launched from the application menu, every navigation item opens, and
+  the theme preference persists across a restart. All three A32 exit
+  criteria are now met with recorded evidence (CI green on main; the
+  installed nightly launches; every navigation item opens), so the S2
+  slice review is requested. No deviations are pending approval for this
+  slice; the known issues are the Depends deduplication (deferred to
+  Slice 3 by design, per A33) and the proc-macro-error2 informational
+  note. Slice 3 starts only after the review passes.
 
 History of the previous slice (S1, for the record):
 - a614bf0, def3e75, c7b7b65, 434905e: scaffold, CI, autofix, docs (locally
