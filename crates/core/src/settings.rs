@@ -4,8 +4,8 @@
 //! providers, preferences, theme, demo mode). The store keeps every value as
 //! text under a dotted key and validates at the typed boundary: generic
 //! [`get`]/[`set`] carry raw strings for future subsystems, while named
-//! accessors like [`log_level`] reject values their subsystem cannot use
-//! (A16: no silent failure, no invalid state stored).
+//! accessors like [`log_level`] and [`theme`] reject values their subsystem
+//! cannot use (A16: no silent failure, no invalid state stored).
 //!
 //! Secrets never pass through this module's logging surface; values are
 //! stored as given and only ever returned to the caller that asked for them
@@ -18,6 +18,13 @@ use crate::logging;
 
 /// The key holding the configured log level name.
 pub const LOG_LEVEL_KEY: &str = "log.level";
+
+/// The key holding the persisted theme preference.
+pub const THEME_KEY: &str = "app.theme";
+
+/// The theme names the shell understands: follow the system color-scheme
+/// preference, or pin the light or dark palette.
+pub const THEME_NAMES: &[&str] = &["system", "light", "dark"];
 
 /// Reads the value stored under `key`, or `None` when unset.
 pub fn get(conn: &Connection, key: &str) -> Result<Option<String>> {
@@ -110,6 +117,35 @@ pub fn set_log_level(conn: &Connection, name: &str) -> Result<()> {
     set(conn, LOG_LEVEL_KEY, name)
 }
 
+/// Reads the persisted theme name, validated against [`THEME_NAMES`].
+///
+/// `None` means the theme is unset and the caller should follow the system
+/// color-scheme preference. A stored name outside [`THEME_NAMES`] (for
+/// example after manual database edits) is an error, not a fallback.
+pub fn theme(conn: &Connection) -> Result<Option<String>> {
+    match get(conn, THEME_KEY)? {
+        Some(name) => {
+            if !THEME_NAMES.contains(&name.as_str()) {
+                return Err(Error::Settings(format!(
+                    "the stored theme {name} is not a theme name"
+                )));
+            }
+            Ok(Some(name))
+        }
+        None => Ok(None),
+    }
+}
+
+/// Stores the theme name after validating it is one of [`THEME_NAMES`].
+pub fn set_theme(conn: &Connection, name: &str) -> Result<()> {
+    if !THEME_NAMES.contains(&name) {
+        return Err(Error::InvalidInput(format!(
+            "{name} is not a theme name"
+        )));
+    }
+    set(conn, THEME_KEY, name)
+}
+
 fn validate_key(key: &str) -> Result<()> {
     if key.trim().is_empty() {
         return Err(Error::InvalidInput("the setting key is empty".into()));
@@ -124,7 +160,10 @@ mod tests {
     use crate::db;
     use crate::error::Error;
 
-    use super::{LOG_LEVEL_KEY, get, list, log_level, remove, set, set_log_level};
+    use super::{
+        LOG_LEVEL_KEY, THEME_KEY, get, list, log_level, remove, set, set_log_level, set_theme,
+        theme,
+    };
 
     fn test_conn() -> Connection {
         let mut conn = Connection::open_in_memory().expect("an in-memory database should open");
@@ -219,6 +258,53 @@ mod tests {
             log_level(&conn).expect("the stored level should read back"),
             Some("TRACE".to_string())
         );
+    }
+
+    #[test]
+    fn set_theme_roundtrips_and_replaces() {
+        let conn = test_conn();
+        set_theme(&conn, "dark").expect("a valid theme should store");
+        set_theme(&conn, "light").expect("another valid theme should replace it");
+        assert_eq!(
+            theme(&conn).expect("the stored theme should read back"),
+            Some("light".to_string())
+        );
+        assert_eq!(
+            get(&conn, THEME_KEY).expect("the value should sit under the theme key"),
+            Some("light".to_string())
+        );
+    }
+
+    #[test]
+    fn an_unknown_theme_name_is_rejected_on_write() {
+        let conn = test_conn();
+        match set_theme(&conn, "sepia") {
+            Err(Error::InvalidInput(message)) => {
+                assert!(message.contains("sepia"), "unexpected: {message}");
+            }
+            other => panic!("an unknown theme name must be rejected, got {other:?}"),
+        }
+        assert_eq!(
+            get(&conn, THEME_KEY).expect("the rejected write must not store anything"),
+            None
+        );
+    }
+
+    #[test]
+    fn a_tampered_theme_is_rejected_on_read() {
+        let conn = test_conn();
+        set_theme(&conn, "dark").expect("a valid theme should store");
+        conn.execute(
+            "UPDATE settings SET value = 'sepia' WHERE key = ?1",
+            [&THEME_KEY],
+        )
+        .expect("the tampering should run");
+        match theme(&conn) {
+            Err(Error::Settings(message)) => {
+                assert!(message.contains("sepia"), "unexpected: {message}");
+            }
+            other => panic!("a tampered theme must be rejected, got {other:?}"),
+        }
     }
 
     #[test]
