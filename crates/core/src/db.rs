@@ -9,6 +9,7 @@
 //! code fails loudly instead of silently diverging (A16: no silent failure).
 
 use std::path::Path;
+use std::sync::Mutex;
 
 use rusqlite::{Connection, params};
 
@@ -78,6 +79,31 @@ pub fn open(path: impl AsRef<Path>) -> Result<Connection> {
 
     run_migrations(&mut conn, MIGRATIONS)?;
     Ok(conn)
+}
+
+/// The application database shared across threads.
+///
+/// `rusqlite::Connection` is `Send` but not `Sync`, so callers take turns
+/// behind a mutex. A poisoned lock is an error rather than a panic: it means
+/// a panic already happened while the connection was checked out, and the
+/// error says so instead of hiding it (A16).
+pub struct SharedDb(Mutex<Connection>);
+
+impl SharedDb {
+    /// Wraps an opened [`Connection`].
+    pub fn new(connection: Connection) -> Self {
+        Self(Mutex::new(connection))
+    }
+
+    /// Runs `operation` with the connection, one caller at a time.
+    pub fn with<T>(&self, operation: impl FnOnce(&Connection) -> Result<T>) -> Result<T> {
+        match self.0.lock() {
+            Ok(connection) => operation(&connection),
+            Err(poisoned) => Err(Error::Database(format!(
+                "the database connection lock is poisoned: {poisoned}"
+            ))),
+        }
+    }
 }
 
 /// Applies `migrations` to `conn` exactly once each, in order.
@@ -204,7 +230,7 @@ fn unix_epoch_seconds() -> Result<i64> {
 
 #[cfg(test)]
 mod tests {
-    use super::{MIGRATIONS, Migration, open, run_migrations};
+    use super::{MIGRATIONS, Migration, SharedDb, open, run_migrations};
     use rusqlite::Connection;
     use std::path::PathBuf;
 
@@ -365,6 +391,43 @@ mod tests {
             .expect_err("a non-ascending list must be rejected");
         assert!(
             error.to_string().contains("strictly ascending"),
+            "unexpected error: {error}"
+        );
+    }
+
+    #[test]
+    fn a_shared_connection_serves_operations_in_turn() {
+        let path = temp_path("shared");
+        let conn = open(&path).expect("the database should open");
+        let shared = SharedDb::new(conn);
+
+        shared
+            .with(|conn| crate::settings::set(conn, "probe.shared", "first"))
+            .expect("the write should run on the shared connection");
+
+        let stored = shared
+            .with(|conn| crate::settings::get(conn, "probe.shared"))
+            .expect("the later read should see the earlier write");
+        assert_eq!(stored, Some("first".to_string()));
+    }
+
+    #[test]
+    fn a_poisoned_connection_lock_is_an_error_not_a_panic() {
+        let path = temp_path("poison");
+        let conn = open(&path).expect("the database should open");
+        let shared = SharedDb::new(conn);
+
+        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let _ = shared.with(|_| -> crate::error::Result<()> {
+                panic!("the operation fails while holding the connection");
+            });
+        }));
+
+        let error = shared
+            .with(|conn| crate::settings::get(conn, "probe.shared"))
+            .expect_err("a poisoned lock must surface as an error");
+        assert!(
+            error.to_string().contains("poisoned"),
             "unexpected error: {error}"
         );
     }
