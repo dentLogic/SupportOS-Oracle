@@ -18,12 +18,14 @@ fn app_version() -> String {
 
 #[tauri::command]
 fn settings_get(db: tauri::State<SharedDb>, key: String) -> Result<Option<String>, String> {
-    db.with(|conn| settings::get(conn, &key)).map_err(|e| e.to_string())
+    db.with(|conn| settings::get(conn, &key))
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn settings_set(db: tauri::State<SharedDb>, key: String, value: String) -> Result<(), String> {
-    db.with(|conn| settings::set(conn, &key, &value)).map_err(|e| e.to_string())
+    db.with(|conn| settings::set(conn, &key, &value))
+        .map_err(|e| e.to_string())
 }
 
 /// The persisted theme name, or "system" when no preference is stored.
@@ -36,7 +38,8 @@ fn settings_theme(db: tauri::State<SharedDb>) -> Result<String, String> {
 
 #[tauri::command]
 fn settings_set_theme(db: tauri::State<SharedDb>, theme: String) -> Result<(), String> {
-    db.with(|conn| settings::set_theme(conn, &theme)).map_err(|e| e.to_string())
+    db.with(|conn| settings::set_theme(conn, &theme))
+        .map_err(|e| e.to_string())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
