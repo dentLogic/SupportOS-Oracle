@@ -8,13 +8,20 @@ Current slice: S2 (Foundation)
 Current task: owner launch check — install the nightly DEB, confirm every
 navigation item opens and the theme preference persists across a restart;
 then the S2 slice review
-Last commit: 7f02c28 on main (slice2/shell-settings fast-forward merged:
-the settings-wired commands, the persisted theme toggle, the docs)
-Latest CI result: SUCCESS — 36952644692 on main (7f02c28) with the Nightly
-job rebuilding the DEB at 2026-10-02T01:52:10Z (3,968,672 bytes, sha256
-02734354bf8a3a4cf54c213b142bf041d78a2cf018e8691cbeb7b22da8ab7cd3 verified
-against the downloaded asset); 31 core tests (db, settings, jobs, logging,
-error) plus 2 nav tests.
+Last commit: e327d70 on main (slice2/s2-render-negative-control
+fast-forward merged: the render-failure negative-control docs; this pass
+is docs-only on top)
+Latest CI result: SUCCESS — 36963732050 on main (e327d70) with the Nightly
+job rebuilding the DEB at 2026-10-02T04:18:59Z (3,968,664 bytes; that exact
+asset was re-downloaded and its sha256
+d9dda2f9726dec50d309cc2ef6d309dc24fffaed453beb4b5c6dfd2dcc739d38 matches
+the digest published beside it in the release, and it smoke-launched on a
+clean profile with the same evidence as the section below); 31 core tests
+(db, settings, jobs, logging, error) plus 2 nav tests. NOTE: every merge to
+main replaces the nightly asset, so a digest recorded here ages
+immediately — when installing, verify the download against the .sha256
+asset published next to the DEB in the Nightly release, which always
+matches the current bytes.
 
 What the green run proves (verified evidence, not claims):
 - The Leptos router shell builds for wasm32 through trunk: leptos_router
@@ -122,9 +129,11 @@ Known issues:
   clippy; informational only, tracked for the cargo-audit/deny step.
 
 Next 3 tasks:
-1. Owner launch check: install the nightly DEB (sha256 in the header),
-   launch from the application menu, confirm every navigation item opens
-   and the theme preference survives a restart.
+1. Owner launch check: install the nightly DEB (verify it against the
+   .sha256 asset published next to it in the Nightly release — not a digest
+   in this file, which ages out at every rebuild), launch from the
+   application menu, confirm every navigation item opens and the theme
+   preference survives a restart.
 2. Record the launch-check result, then request the S2 slice review.
 3. Slice 3 (packaging) once the S2 review passes: RPM and AppImage
    packaging per A33, including the Depends deduplication.
@@ -244,7 +253,7 @@ History of this slice (S2):
   fast-forward merged slice2/shell-settings to main; main run 36952644692
   green with the Nightly job rebuilding the DEB (3,968,672 bytes) at
   01:52:10Z.
-- The S2 exit-evidence pass (this commit): nightly assets verified by
+- The S2 exit-evidence pass (13efb16): nightly assets verified by
   sha256, package structure inspected, and an agent-side smoke launch under
   Xvfb proved the launch path end-to-end (window 800x600 with the right
   WM_CLASS, DB with WAL and both migrations on a fresh profile, the startup
@@ -253,6 +262,18 @@ History of this slice (S2):
   and a negative control (WebKit's own MiniBrowser with a trivial JS page
   failing identically) proved that is a container limitation, not an app
   defect; the on-screen criterion remains the owner's launch check.
+- The current-artifact re-verification pass (this commit): the nightly DEB
+  the owner will actually download — the 04:18:59Z rebuild at e327d70,
+  3,968,664 bytes, sha256 d9dda2f9...9d38 — was downloaded, digest-verified
+  against the release, and smoke-launched on a clean profile: window
+  title/WM_CLASS/geometry, WAL database with both migrations applied, and
+  the startup log record all reconfirmed on those exact bytes. This pass
+  also fixed a handoff defect found in it: the header still pointed the
+  owner at the sha256 of the superseded 01:52:10Z build (two rebuilds
+  earlier), so a check against the header would have shown a false
+  mismatch; the owner instruction now points at the .sha256 asset in the
+  release, which always matches the current DEB (decision recorded in
+  DECISIONS).
 
 History of the previous slice (S1, for the record):
 - a614bf0, def3e75, c7b7b65, 434905e: scaffold, CI, autofix, docs (locally

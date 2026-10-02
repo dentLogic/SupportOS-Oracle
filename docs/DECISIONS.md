@@ -6,6 +6,23 @@ otherwise.
 
 ## Slice 2
 
+- **The digest an owner verifies a nightly download against is the .sha256
+  asset in the Nightly release, never a digest recorded in PROGRESS.md**
+  (slice2/s2-digest-pointer, 2026-10-02): every fast-forward merge to main
+  triggers a Nightly rebuild that replaces the asset with a new sha256, so
+  any digest written into the docs ages out immediately — the header had
+  been left pointing at the superseded 01:52:10Z build (sha256 0273...cd3)
+  while two later rebuilds had already replaced the file, and an owner
+  checking their download against the header would have seen a false
+  mismatch. The header may record the digest of a specific verified build
+  as evidence (with its build timestamp), but the live checksum source is
+  the release. Reason: the release page and its .sha256 asset are updated
+  atomically by the same workflow that uploads the DEB, so they always
+  describe the current bytes. Trade-off: PROGRESS.md cannot double as a
+  checksum reference, and the owner verification step requires fetching
+  the small .sha256 asset (or reading the release page) rather than a
+  local file.
+
 - **The S2 exit evidence includes an agent-side smoke launch of the nightly
   DEB, done rootless in the sandbox, and it is recorded as supporting
   evidence only — never as the "installs and launches" exit criterion**
